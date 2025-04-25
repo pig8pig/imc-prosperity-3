@@ -5,23 +5,26 @@ This repository contains research and algorithms for our team, Linear Utility, i
 ## the team ✨
 
 
-<table>
+<table width="50%">
   <tbody>
     <tr>
-      <td align="center" valign="top" width="14.28%">
+      <td align="center" valign="top" width="150px">
         <a href="https://www.linkedin.com/in/timo-diehm">
           <img src="https://github.com/user-attachments/assets/29c05872-f107-4bb2-82bd-961865f8cba3" width="100px;" alt="Timo Diehm"/>
-          <br /><sub><b>Timo Diehm</b></sub></a>
+          <br />
+          <p><b>Timo Diehm</b></p></a>
       </td>
-      <td align="center" valign="top" width="14.28%">
+      <td align="center" valign="top" width="150px">
         <a href="https://www.linkedin.com/in/arne-witt">
           <img src="https://github.com/user-attachments/assets/61ee7433-469e-4a47-9bf6-a203aea6a0d5" width="100px;" alt="Arne Witt"/>
-          <br /><sub><b>Arne Witt</b></sub></a>
+          <br />
+          <p><b>Arne Witt</b></p></a>
       </td>
-      <td align="center" valign="top" width="14.28%">
+      <td align="center" valign="top" width="150px">
         <a href="https://www.linkedin.com/in/marvin-schuster">
           <img src="https://github.com/user-attachments/assets/61ee7433-469e-4a47-9bf6-a203aea6a0d5" width="100px;" alt="Marvin Schuster"/>
-          <br /><sub><b>Marvin Schuster</b></sub></a>
+          <br />
+          <p><b>Marvin Schuster</b></p></a>
       </td>
     </tr>
   </tbody>
