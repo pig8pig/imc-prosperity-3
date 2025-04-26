@@ -1,8 +1,7 @@
 # Frankfurt Hedgehogs 📈
 
-text
 
-## the team ✨
+This writeup shares our algorithm and insights that brought us to 2nd place globally in IMC Prosperity 3 (2025). Outperforming (almost) all other 12,000 teams, we achieved a final score of 1,433,876 seashells not winning us 10,000$ because we already won some prize money last year :)
 
 <table width="50%">
   <tbody>
@@ -29,10 +28,21 @@ text
   </tbody>
 </table>
 
+<br/>
+
+After countless requests, we decided to share our final algorithm as well as all of our insights to give back to the whole community of Prosperity 3. We are aware that fellow or future participants are not all on our level of expertise about quant/algo trading, so we tried to make this writup as detailled as possible but some topics are just not explainable in a short paragraph so we included some links to external sources an inexperienced reader should carefully follow.
+
+<br/>
+
+This report goes far beyond just presenting our final strategies by not only presenting all insights and detailed explanations but also sharing our thoughts and reasoning behind our decisions. Still, it is mainly intended for fellow or future participants as it is about Prosperity 3 specifically. If you are interested in how we managed to stay at the top of the leaderboard across different competitions and want a more general insight/advice in how to go about those competitions, please see our blog: How to (almost) win against thousands of other teams (link). 
 
 ## the competition 🏆
 
-text
+IMC Prosperity 3 (2025) was an algorithmic trading competition that lasted over 5 rounds and 15 days, with over 12,000 teams participating globally. In the challenge, we were tasked with algorithmically trading various products - simulating various real world trading opportunities such as market making, statistical arbitrage, scalping, locational arbitrage etc. - with the goal of maximizing profits. All of it was very well gamified such that each team acted as a different island that traded products like Kelp, Squid Ink, Picnic Baskets (ETF) or Volcanic Rock Vouchers (Options) and the currency was seashells. It started off with only three products in the first round and progressively increased to 15 products for the last round. At the end of each round, our updated trading algorithm was evaluated against bot participants in the marketplace, whose behavior or pattern (in or between) prices we could try to predict and optimize for through historical data. The PNL from this independent evaluation would then be compared against all other teams.
+
+In addition to the main algorithmic trading focus, the competition also consisted of manual trading challenges in each round. The focus of these varied widely, and in the end, manual trading accounted for just a small fraction of our PNL.
+
+For documentation on the algorithmic trading environment, and more context about the competition, feel free to consult the Prosperity 2 Wiki.
 
 ## organization 📂
 
