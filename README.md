@@ -1,7 +1,6 @@
 # Frankfurt Hedgehogs 📈
 
-
-This writeup shares our algorithm and insights that brought us to 2nd place globally in IMC Prosperity 3 (2025). Outperforming (almost) all other 12,000 teams, we achieved a final score of 1,433,876 seashells not winning us 10,000$ because we already won some prize money last year :)
+This writeup shares our algorithm and insights that brought us to 2nd place globally in IMC Prosperity 3 (2025). Outperforming (almost) all other 12,000+ teams, we achieved a final score of 1,433,876 SeaShells but unfortunately we didn't win the 10,000$ prize for it as we had already earned prize money in last year's competition. :)
 
 <table width="50%">
   <tbody>
@@ -30,25 +29,27 @@ This writeup shares our algorithm and insights that brought us to 2nd place glob
 
 <br/>
 
-After countless requests, we decided to share our final algorithm as well as all of our insights to give back to the whole community of Prosperity 3. We are aware that fellow or future participants are not all on our level of expertise about quant/algo trading, so we tried to make this writup as detailled as possible but some topics are just not explainable in a short paragraph so we included some links to external sources an inexperienced reader should carefully follow.
+After countless requests, we decided to share our final algorithm along with all of our insights to give back to the Prosperity 3 community.
+We realize that fellow or future participants have varying levels of experience with quant and algorithmic trading, so we tried to make this write-up as detailed and accessible as possible. Some topics are just too deep to explain in a short paragraph, so we included links to external resources that less experienced readers should carefully study.
 
 <br/>
 
-This report goes far beyond just presenting our final strategies by not only presenting all insights and detailed explanations but also sharing our thoughts and reasoning behind our decisions. Still, it is mainly intended for fellow or future participants as it is about Prosperity 3 specifically. If you are interested in how we managed to stay at the top of the leaderboard across different competitions and want a more general insight/advice in how to go about those competitions, please see our blog: How to (almost) win against thousands of other teams (link). 
+This report goes far beyond just presenting our final strategies.
+We not only break down those strategies and insights that worked for us, but also share the thought processes and decisions behind them.
+That said, this document is mainly intended for fellow or future Prosperity participants, since it focuses specifically on Prosperity 3.
+If you're more interested in how we consistently stayed at the top across multiple competitions — and want general advice on how to compete against thousands of teams — check out our separate blog post:
+<br />
+<a href="https://www.linkedin.com/in/timo-diehm">How to (Almost) Win Against Thousands of Other Teams (link). </a>
 
 ## the competition 🏆
 
 IMC Prosperity 3 (2025) was an algorithmic trading competition that lasted over 5 rounds and 15 days, with over 12,000 teams participating globally. In the challenge, we were tasked with algorithmically trading various products - simulating various real world trading opportunities such as market making, statistical arbitrage, scalping, locational arbitrage etc. - with the goal of maximizing profits. All of it was very well gamified such that each team acted as a different island that traded products like Kelp, Squid Ink, Picnic Baskets (ETF) or Volcanic Rock Vouchers (Options) and the currency was seashells. It started off with only three products in the first round and progressively increased to 15 products for the last round. At the end of each round, our updated trading algorithm was evaluated against bot participants in the marketplace, whose behavior or pattern (in or between) prices we could try to predict and optimize for through historical data. The PNL from this independent evaluation would then be compared against all other teams.
 
-In addition to the main algorithmic trading focus, the competition also consisted of manual trading challenges in each round. The focus of these varied widely, and in the end, manual trading accounted for just a small fraction of our PNL.
+In addition to the main algorithmic trading focus, the competition also consisted of manual trading challenges in each round. Although, accounting for just a small fraction of total PNL, those challenges were fun as they incorporated optimization under uncertainty under aspects of game theory or other fun challenges such as news trading.
 
-For documentation on the algorithmic trading environment, and more context about the competition, feel free to consult the Prosperity 2 Wiki.
+For documentation on the algorithmic trading environment, and more context about the competition, feel free to consult the Prosperity 3 Wiki. [LINK]
 
-## organization 📂
-
-text
-
-## Table of Contents
+## Structure
 
 - [Tools](#tools)
 - [Algorithmic Part](#algorithmic-challenge)
