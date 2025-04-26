@@ -29,7 +29,8 @@ This writeup shares our algorithm and insights that brought us to 2nd place glob
 
 <br/>
 
-After countless requests, we decided to share our final algorithm along with all of our insights to give back to the Prosperity 3 community.
+After countless requests, we decided to share our final algorithm along with all of our insights to give back to the Prosperity 3 community. We also believe that sharing advances the competition itself — ensuring that more participants start on the same page for future editions, and encouraging innovation on IMC’s side.
+While Prosperity 3 already introduced many new products and trading styles, there is still a lot of untapped potential — especially in designing bot behaviors that create deeper and more exploitable opportunities for highly advanced teams.
 We realize that fellow or future participants have varying levels of experience with quant and algorithmic trading, so we tried to make this write-up as detailed and accessible as possible. Some topics are just too deep to explain in a short paragraph, so we included links to external resources that less experienced readers should carefully study.
 
 <br/>
@@ -43,11 +44,19 @@ If you're more interested in how we consistently stayed at the top across multip
 
 ## the competition 🏆
 
-IMC Prosperity 3 (2025) was an algorithmic trading competition that lasted over 5 rounds and 15 days, with over 12,000 teams participating globally. In the challenge, we were tasked with algorithmically trading various products - simulating various real world trading opportunities such as market making, statistical arbitrage, scalping, locational arbitrage etc. - with the goal of maximizing profits. All of it was very well gamified such that each team acted as a different island that traded products like Kelp, Squid Ink, Picnic Baskets (ETF) or Volcanic Rock Vouchers (Options) and the currency was seashells. It started off with only three products in the first round and progressively increased to 15 products for the last round. At the end of each round, our updated trading algorithm was evaluated against bot participants in the marketplace, whose behavior or pattern (in or between) prices we could try to predict and optimize for through historical data. The PNL from this independent evaluation would then be compared against all other teams.
+IMC Prosperity 3 (2025) was a global algorithmic trading competition that ran over five rounds and fifteen days, with 12,000+ teams participating worldwide.
+The challenge tasked teams with designing trading algorithms to maximize profits across a variety of simulated products — replicating real-world opportunities such as market making, statistical arbitrage, scalping, and locational arbitrage etc.
 
-In addition to the main algorithmic trading focus, the competition also consisted of manual trading challenges in each round. Although, accounting for just a small fraction of total PNL, those challenges were fun as they incorporated optimization under uncertainty under aspects of game theory or other fun challenges such as news trading.
+The competition was gamified: each team represented an "island" trading fictional products like Kelp, Squid Ink, Picnic Baskets (an ETF analog), and Volcanic Rock Vouchers (an options analog), using SeaShells as the in-game currency.
+It started with just three products in Round 1 and progressively expanded to 15 products by the final round.
 
-For documentation on the algorithmic trading environment, and more context about the competition, feel free to consult the Prosperity 3 Wiki. [LINK]
+In each round, teams submitted an updated version of their trading algorithm, which was then independently evaluated against a marketplace of bot participants.
+Teams could study and optimize their algorithms by analyzing bot behaviors and interactions (e.g. predictable quoting or trading patterns) as well as statistical patterns in the price series themselves — both within a single product and across multiple related products (such as deviations between an ETF and its underlying constituents).The profit and loss (PnL) from this evaluation determined each team's standing relative to all others on the global leaderboard.
+
+In addition to algorithmic trading, each round featured a manual trading challenge.
+Although these accounted for only a small fraction of total PnL, they were a fun aspect of the competition, often involving optimization under uncertainty, game-theoretic decision-making, or news-based trading tasks.
+
+For full documentation on the algorithmic trading environment and more competition context, please refer to the Prosperity 3 Wiki.
 
 ## Structure
 
@@ -68,20 +77,85 @@ For documentation on the algorithmic trading environment, and more context about
 
 ## tools
 
-text
+Having the right tools prepared before the competition is critical for maximum efficiency during the competition itself.
+Prosperity 2’s data was publicly available, allowing teams to familiarize themselves with the data formats, set up the tutorial environment early, and test their algorithms and logging infrastructure well before the official start of Prosperity 3.
 
 ### backtester 🔙
 
-text
+For backtesting, we mainly relied on our own forked version of Jasper Merle’s open-source backtester (jmerle/prosperity-backtester) alongside the Prosperity website’s own backtesting functionality.
+Each served different, specific purposes in our workflow — for a detailed explanation of how we approached backtesting, please refer to the Backtesting Section.
 
 ### dashboard 💨
 
-text
+We developed our own dashboard as a preparation for Prosperity 2, and further updated and improved it before Prosperity 3 — adding features that we didn’t have time to implement during the first competition.
+Since this dashboard will be heavily referenced when we explain our strategies and insights across all products, we’ll first give a detailed description of it here.
+
+Prosperity — like real-world trading — puts strong emphasis on market microstructure.
+A proper, intuitive order book visualization tool is essential for building the deep intuition necessary to recognize and exploit profitable patterns.
+
+Unlike many standard trading dashboards, we designed ours completely from scratch, based on what was actually most useful for this particular competition.
+Aesthetics were never our priority — everything was optimized purely for functionality and speed during use.
+(Please keep that in mind — we know it’s ugly!)
 
 ![dashboard explanation](https://github.com/user-attachments/assets/6c283b73-07e3-4b3a-b8b5-9b38cc51b314)
 <p align="center">
   <em>we used to have actual section headers, but at some point we (Jerry and Eric) got hungry and started editing them</em>
 </p>
+
+In the main plot, you can see **price levels**:
+
+- **Ask (sell) quotes** are plotted in **red**.
+- **Bid (buy) quotes** are plotted in **blue**.
+
+Markers represent **trades**:
+
+- **Squares** = trades by makers.
+- **Triangles** = trades by takers.
+- **Crosses** = our own trades.
+
+Each numbered section in the dashboard corresponds to a specific functionality:
+
+1. **Hoverable Tooltip** 🖱️  
+   Displays who traded, how much, and at what price at the hovered timestamp.
+
+2. **PnL Panel** 💰  
+   Shows the profit and loss for the currently selected product.
+
+3. **Position Panel** 📊  
+   Displays the net position for the selected product over time.
+
+4. **Log Viewer** 🧾  
+   Parses our own logger outputs into a clean, timestamp-synced view.  
+   Always matches the time currently hovered over in the main plot.
+
+5. **Selection Controls** 🎯  
+   Allows selecting:
+   - The log file.
+   - The product (e.g., Kelp).
+   - Specific **logged indicators** to overlay onto prices.
+   
+   A powerful feature here is the **normalization dropdown**:  
+   By selecting an indicator (e.g., `wall_mid` — our proxy for the "true price"), all prices can be normalized relative to it.  
+   This is extremely useful for visualizing strategies like mean reversion (When having **PICNIC_BASKET1** selected normalizing by the sum of its constituents perfectly demonstrates the mean reversion of the baskets premium still maintaining the orderbook style).
+
+6. **Trade Filtering and Visualization** 🔎  
+   Controls what types of trades and order book elements to display:
+   - Toggle order book levels.
+   - Toggle all trades, specific trader groups or specific traders:
+     - **M** (maker)
+     - **S** (small taker)
+     - **B** (big taker)
+     - **I** (informed trader)
+     - **F** (our own trades)
+   - Set quantity filters to only show trades within a specified size range, especially helpful when trader IDs still unknown.
+
+7. **Performance and Downsampling Controls** ⚡  
+   Adjusts dynamic downsampling and visibility thresholds to prevent lag when visualizing large datasets.
+
+
+Notes:
+- We intentionally avoided any existing known dashboard styles; instead, we focused purely on designing what helped us most during analysis or checking of our algorithm during intense rounds.
+- The visualization choice (scatter plot as order book depth representation) was made based on the specific structure of Prosperity markets — where products typically have only 1–4 meaningful price levels.
 
 # Algorithmic Challenge
 
