@@ -1,6 +1,6 @@
 # Frankfurt Hedgehogs 📈
 
-This writeup shares our algorithm and insights that brought us to 2nd place globally in IMC Prosperity 3 (2025). Outperforming (almost) all other 12,000+ teams, we achieved a final score of 1,433,876 SeaShells but unfortunately we didn't win the 10,000$ prize for it as we had already earned prize money in last year's competition. :)
+This writeup shares our algorithm and insights that brought us to 2nd place globally in IMC Prosperity 3 (2025). Outperforming (almost) all other 12,000+ teams, we achieved a final score of 1,433,876 SeaShells but unfortunately we didn't win the 10,000$ prize for it as we had already earned prize money in last year's competition :)
 
 <table width="50%">
   <tbody>
