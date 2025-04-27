@@ -167,9 +167,21 @@ Rainforest Resin was the simplest and most beginner-friendly product in Prosperi
 
 A key insight not just for Rainforest Resin but for all Prosperity products was understanding how the simulation handled order flow. At the start of every new timestep, the simulation first cleared all previous orders. Then, it sequentially processed new submissions: first some deep-liquidity makers, then small takers, then our own bot’s actions (take or make), followed by other bots — usually more takers. This structure meant that speed and order cancellation were irrelevant: you had a full snapshot of the book and could submit any combination of passive or aggressive orders without racing against anyone. For Rainforest Resin, this confirmed that all focus should be on carefully optimizing the edge versus fill probability trade-off.
 
+<table>
+<tr valign="top">
+<td width="70%">
   <img src="https://github.com/user-attachments/assets/54363d35-63ac-406f-b2de-ad6a06e7433d"
        alt="Dynamic dashboard"
-       width="70%" />
+       width="100%" />
+</td>
+<td width="30%">
+  <strong>Figure 1: Rainforest Resin Orderbook over Time</strong><br/>
+  <em>Snippet of orderbook over time for Rainforest Resin.  
+  Black stars are our quotes. Orange crosses are fills we got, profitable opportunities we immediately took, or trades at 10,000 we used to unwind inventory.</em>
+</td>
+</tr>
+</table>
+
 
 Our final strategy for Rainforest Resin was straightforward. Each timestep, we first immediately took any favorable trades available — buying below 10,000 or selling above it. Afterward, we placed passive quotes slightly better than any existing liquidity: overbidding on bids and undercutting on asks while maintaining positive edge. If inventory became too skewed, we flattened it at exactly 10,000 to free up risk capacity for the next opportunities. No sophisticated logic or aggressiveness was needed due to the stable true price and the clean snapshot-based trading model.
 
@@ -181,13 +193,31 @@ Kelp was very similar in nature to Rainforest Resin, with the only major differe
 
 The critical insight for Kelp was recognizing that, despite small movements, the future price was essentially unpredictable. Once teams realized that takers lacked predictive power and that the next true price could not be systematically forecasted, it became clear that the best available estimate for the true price was simply the current one. In fact, while there was a minor technical edge — stemming from the fact that the true price was internally a floating-point value and orders could only be posted at integer levels (creating slight mean-reversion tendencies after ticks) — this effect was too small to materially alter strategy. Just like with Rainforest Resin, the optimal approach was to treat the "wall mid" [LINK] as the fair price and quote around it.
 
+<table>
+<tr valign="top">
+<td width="70%">
   <img src="https://github.com/user-attachments/assets/2a7c36dc-76b8-482d-934b-c9ee7ff527f6"
        alt="Dynamic dashboard"
-       width="70%" />
+       width="100%" />
+</td>
+<td width="30%">
+  <strong>Figure 2a: Kelp Orderbook over Time (Raw)</strong><br/>
+  <em>Same as Figure 1, but with Kelp's price movement.</em>
+</td>
+</tr>
 
+<tr valign="top">
+<td width="70%">
   <img src="https://github.com/user-attachments/assets/80b5f2cb-ae7a-400b-aff0-311e977c2d58"
        alt="Static, normalized dashboard"
-       width="70%" />
+       width="100%" />
+</td>
+<td width="30%">
+  <strong>Figure 2b: Kelp Orderbook over Time (Normalized)</strong><br/>
+  <em>Same as Figure 2a, but every price got normalized (subtracted) with Wall Mid to make it stationary. Here one can see it is very similar to Rainforest Resin, except tighter bid-ask spread.</em>
+</td>
+</tr>
+</table>
 
 Our final strategy for Kelp was nearly identical to that for Rainforest Resin. At each timestep, we first immediately took any favorable trades available relative to the current wall mid, then placed slightly improved passive orders (overbidding and undercutting) around the fair price. If inventory became too large, we neutralized it by trading at zero edge relative to the current price estimate. No major changes were needed compared to the first product.
 
@@ -199,13 +229,31 @@ Squid Ink differed from the previous two products mainly in that it had a tighte
 
 Our main insight was that one of the anonymous bot traders consistently exhibited a strikingly predictable pattern: buying 15 lots at the daily low and selling 15 lots at the daily high. We observed this behavior early on, without initially knowing who the trader was. It was only in the final round — when trader IDs were temporarily visible — that we learned this trader was named Olivia. Anticipating this kind of behavior and designing logic to detect it gave us a clear edge. Without revealing our exact identification method (to avoid encouraging blind copying), the general approach involved tracking the daily running minimum and maximum. When a trade occurred at a daily extreme — and in the expected direction relative to the mid price — we flagged it as a signal and positioned accordingly. False positives were managed by monitoring for corresponding new extrema that contradicted earlier signals.
 
+<table>
+<tr valign="top">
+<td width="70%">
   <img src="https://github.com/user-attachments/assets/9f552b07-98e9-4488-b4b9-95b2e1435747"
        alt="Dynamic dashboard"
-       width="70%" />
+       width="100%" />
+</td>
+<td width="30%">
+  <strong>Figure 3a: Squid Ink Prices with Informed Trader</strong><br/>
+  <em>This plot shows that Olivia bought exactly at daily min and sold exactly at daily max.</em>
+</td>
+</tr>
 
+<tr valign="top">
+<td width="70%">
   <img src="https://github.com/user-attachments/assets/b6e23225-fd1f-4971-ad00-729ec2bdef8f"
-       alt="Dynamic dashboard"
-       width="70%" />
+       alt="Static, normalized dashboard"
+       width="100%" />
+</td>
+<td width="30%">
+  <strong>Figure 3b: Squid Ink Prices with Anonymous Trades</strong><br/>
+  <em>This plot filtered all anonymous trades to only show trades with quantity=15 as it was for early rounds. One could have looked out for those and early identified them during the rounds 1-4.</em>
+</td>
+</tr>
+</table>
 
 Our final strategy for Squid Ink focused purely on following this daily-extrema trading behavior, dynamically updating our positions based on detected trades and resetting when invalidations occurred. No active market making or mean reversion trading was used for this product. The result was a low-risk, high-reliability PnL contributor that did not rely on predicting price moves directly.
 
@@ -223,13 +271,19 @@ In quantitative trading, finding and exploiting such linkages — when the synth
 A deeper look revealed two main spread opportunities: first, trading the spread between the two baskets adjusted by Djembes (ETF1 - ETF2 + Djembes), and second, trading each basket relative to its synthetic value based on the underlying products (ETF - Constituents).
 While both avenues were possible, we quickly identified that comparing baskets directly to their constituent sums was the stronger and more reliable path.
 
-<img src="https://github.com/user-attachments/assets/9446a89f-fca0-4673-aec4-d65e09921129"
-     alt="Dynamic dashboard"
-     width="70%" />
-
-<img src="https://github.com/user-attachments/assets/3b0f9a5d-e21e-41e3-82df-d96789ace379"
-     alt="Dynamic dashboard"
-     width="70%" />
+<table>
+<tr valign="top">
+<td width="70%">
+  <img src="https://github.com/user-attachments/assets/9446a89f-fca0-4673-aec4-d65e09921129"
+       alt="Dynamic dashboard"
+       width="100%" />
+</td>
+<td width="30%">
+  <strong>Figure 4: Basket Spreads over Time</strong><br/>
+  <em>This plot shows the spreads (basket price - synthetic balue) for both baskets over time.</em>
+</td>
+</tr>
+</table>
 
 When approaching this kind of structure, it's crucial not to blindly apply textbook strategies but to first ask a fundamental question:
 How could the market data have been generated?
@@ -253,9 +307,29 @@ having already detected Olivia's trading behavior on Croissants (similar to Ink 
 For example, if our base threshold was ±50, detecting Olivia as short would shift the long entry to -80 and the short entry to +20, dynamically tilting our bias in the favorable direction.
 This cross-product adjustment allowed us to intelligently exploit correlations between Croissants and the baskets without overcomplicating the system.
 
+<table>
+<tr valign="top">
+<td width="70%">
+  <img src="https://github.com/user-attachments/assets/3b0f9a5d-e21e-41e3-82df-d96789ace379"
+       alt="Dynamic dashboard"
+       width="100%" />
+</td>
+<td width="30%">
+  <strong>Figure 5: Optimal Parameter Search Grid</strong><br/>
+  <em>These plots show backtesting basket pnls for each pair of parameters where the left plot corresponds to basket1 and the right one to basket2. num_param_1 corresponds to base thresholds, num_param_2 corresponds to the informed thresholds adjustments according to Olivia's position.</em>
+</td>
+</tr>
+</table>
+
 During parameter selection, we always prioritized landscape stability over pure performance peaks.
 Rather than picking the best parameter set based on maximum backtested profit, we chose combinations that showed consistent, flat regions of good performance, reducing sensitivity to slight shifts and avoiding overfit disasters.
 Additionally, because we noticed that the basket prices carried a slight persistent premium (the mean of the spread was not zero), we subtracted an estimated running premium from the spread during live trading, continuously updating it to prevent bias.
+
+Also, for the final round, we were uncertain whether or not to fully hedge our basket exposure with the constituents.
+Recognizing that any trading strategy can be viewed as a linear combination of two other strategies — in this case, fully hedged and fully unhedged — we decided to hedge 50% of our exposure as a balanced compromise.
+Additionally, we adjusted our execution logic: instead of waiting for spreads to fully revert and cross opposite thresholds, we neutralized positions immediately upon spreads crossing zero (adjusted for the informed signal).
+This change aimed to reduce variance and lock in profits more consistently, while maintaining approximately zero expected value under the assumption that spreads did not exhibit momentum when crossing zero.
+It is important to note that here, "zero" still referred to the base threshold after incorporating informed adjustments.
 
 Anyone thinking carefully about the problem — starting from generation assumptions, doing proper exploratory data analysis, and resisting the temptation to blindly overfit — could have arrived at a similar approach.
 Concepts like synthetic replication, mean-reversion modeling (e.g., Ornstein-Uhlenbeck processes), and cross-product signal integration are core ideas in quantitative finance.
@@ -267,24 +341,111 @@ With the dynamic informed adjustment based on Croissants, that improved to 30,00
 
 ### Options 🧈
 
-In Round 3, the competition introduced a new class of assets: Volcanic Rock Vouchers — effectively call options on a new underlying product, Volcanic Rock.
+In Round 3, the competition introduced a new class of assets: Volcanic Rock Vouchers — effectively call options on a new underlying product, Volcanic Rock (VR).
 There were five vouchers available, each with a distinct strike price — 9500, 9750, 10000, 10250, and 10500 — while the underlying Volcanic Rock itself traded around 10,000.
 Each voucher granted the right (but not the obligation) to buy Volcanic Rock at the specified strike at expiry.
 Importantly, options had limited time to live: starting with seven days until expiry in the first round, decreasing to just two days by the final round.
 Without basic familiarity with options theory, particularly concepts like implied volatility and option pricing models, it would have been difficult to design strong strategies for this product.
 
+#### IV Scalping 🧈
+
 Our first major insight came from following hints dropped in the competition wiki, suggesting the construction of a volatility smile: plotting implied volatility (IV) against moneyness.
 By fitting a parabola to the observed IVs across strikes and then detrending (subtracting the fitted curve from observed values), we could isolate IV deviations that were no longer dependent on moneyness.
+
+<table>
+<tr valign="top">
+<td width="70%">
+  <img src="https://github.com/user-attachments/assets/49be51d8-4335-4831-adb0-e811e50ce450"
+       alt="Dynamic dashboard"
+       width="100%" />
+</td>
+<td width="30%">
+  <strong>Figure 6a: Volatility Smile</strong><br/>
+  <em>This scatter plot visualizes implied volatility (v_t) vs moneyness (m_t) for different strikes. It also shows a fitted parabola to filter out noise and get v_hat_t for a given m_t essentially resembling the "fair" v_t given m_t. Outliers at the bottom left were disregarded as they referred to historical times where extrinsic value was too low.</em>
+</td>
+</tr>
+
+<tr valign="top">
+<td width="70%">
+  <img src="https://github.com/user-attachments/assets/6aa60cbe-029d-49ed-b883-95c9b7e177df"
+       alt="Static, normalized dashboard"
+       width="100%" />
+</td>
+<td width="30%">
+  <strong>Figure 6b: IV Deviations over Time</strong><br/>
+  <em>This plot visualizes the deviations (v_t - v_hat_t) from 6a over time.</em>
+</td>
+</tr>
+</table>
+
 To convert these into actionable trading signals, we input the volatility-smile-implied IV into a Black-Scholes model to calculate a theoretical fair price, then compared it to the actual market price to find price deviations.
 Plots of these price deviations — especially for the 10,000 strike call early on — revealed sharp short-term fluctuations, indicating scalping opportunities.
+
+<table>
+<tr valign="top">
+<td width="70%">
+  <img src="https://github.com/user-attachments/assets/ca6b1614-c6b2-4026-b41e-5af408fae69c"
+       alt="Dynamic dashboard"
+       width="100%" />
+</td>
+<td width="30%">
+  <strong>Figure 6c: Price Deviations over Time</strong><br/>
+  <em>This plot shows the deviations from 6b, just transformed into price space.</em>
+</td>
+</tr>
+</table>
+
 We initially focused on the 10,000 strike, but dynamically expanded to include other strikes as the underlying shifted and expiry approached, tracking profitability thresholds in real time to decide when to activate scalping on new options.
 Statistical analysis, specifically testing for 1-lag negative autocorrelation in returns, strongly supported the existence of exploitable short-term inefficiencies across several strikes, further validating this approach.
 
+
+<table>
+<tr valign="top">
+<td width="70%">
+  <img src="https://github.com/user-attachments/assets/756d8dab-e76a-4ea6-a986-03d15d5f3bc3"
+       alt="Dynamic dashboard"
+       width="100%" />
+</td>
+<td width="30%">
+  <strong>Figure 7a: 10k Call Price Fluctuations</strong><br/>
+  <em>This plot shows the 10,000 call short term price fluctuations. The orange indicator refers to the theoretical call price using IV from the parabola (v_hat_t) given it's current moneyness.</em>
+</td>
+</tr>
+
+<tr valign="top">
+<td width="70%">
+  <img src="https://github.com/user-attachments/assets/da9ae65a-b0a4-49e0-b072-b9abdbffad68"
+       alt="Static, normalized dashboard"
+       width="100%" />
+</td>
+<td width="30%">
+  <strong>Figure 7b: 10k Call Price Fluctuations (normalized)</strong><br/>
+  <em>This es the exact same plot as 7a, except prices were normalized by the orange indicator to make deviations - for visibility purposes - more stationary.</em>
+</td>
+</tr>
+</table>
+
+#### Mean Reversion Trading 🧈
+
 Simultaneously, analysis of the underlying Volcanic Rock asset suggested potential mean reversion behavior.
 Return distributions and price dynamics resembled Squid Ink, which was explicitly designed to mean revert in Round 1.
-Autocorrelation analysis of VR returns, compared against randomized normal samples, confirmed significant short-term negative autocorrelation at various horizons, although caution was needed given the presence of large jumps and non-normal return distributions.
+Autocorrelation analysis of Volcanic Rock returns, compared against randomized normal samples, confirmed significant short-term negative autocorrelation at various horizons, although caution was needed given the presence of large jumps and non-normal return distributions.
 Given the limited historical data available (only three days), and uncertainty about future dynamics, fully committing to mean reversion was considered too risky.
 Instead, we implemented a lightweight mean reversion model: tracking a fast rolling Exponential Moving Average (EMA) and trading deviations from this EMA using fixed thresholds — without scaling by rolling volatility — to keep the model simple and robust.
+
+<table>
+<tr valign="top">
+<td width="70%">
+  <img src="https://github.com/user-attachments/assets/ae8f01cf-9cd1-4867-ba26-dfcae781ccff"
+       alt="Dynamic dashboard"
+       width="100%" />
+</td>
+<td width="30%">
+  <strong>Figure 8: Autocorrelation Plot for VR</strong><br/>
+  <em>rolling autocorrelation of Volcanic Rock versus truly random sequences suggesting mean reversion behavior.</em>
+</td>
+</tr>
+</table>
 
 In the end, we deployed a hybrid strategy combining both alpha sources.
 Our core focus remained on IV scalping, dynamically expanding across strikes and adjusting thresholds based on evolving conditions, while simultaneously maintaining a moderate mean reversion position — both in the underlying Volcanic Rock and in the deepest in-the-money call (the highest delta option available).
@@ -299,32 +460,7 @@ In terms of results, IV scalping contributed approximately 150,000 SeaShells per
 
 Note: After the fourth round, where the mean reversion strategy resulted in a loss of approximately 30,000 SeaShells, we reassessed its validity. Although we no longer found strong empirical evidence to justify continuing with mean reversion purely on standalone expected value grounds, we knew that several top teams were actively only trading mean reversion strategies. So we figured, if they wouldn't find the IV scalping strategy, they might just accept the coinflip and go all in mean reversion because otherwise they would surely get overtaken by everyone. Facing a 200,000 SeaShell lead at that point, we made a calculated decision to maintain some mean reversion exposure — not because we believed it was necessarily positive EV anymore, but to hedge relatively against the teams still pursuing that angle. We estimated the 95% Value at Risk (VaR) of the mean reversion component to be around 50,000 SeaShells — only about 25% of our lead — leaving us with sufficient margin even if the strategy failed again. Under our assumptions, keeping this balanced exposure maximized our likelihood of securing first place by minimizing relative downside risk while preserving our core scalping profits. This turned out to be the right decision. Although, in the last round some random team very unnaturally jumped from 100+ rank to 1st place, we could keep a healthy distance to all teams that were previously close behind us. 
 
-#### IV Scalping 🧈
-<img src="https://github.com/user-attachments/assets/49be51d8-4335-4831-adb0-e811e50ce450"
-     alt="Dynamic dashboard"
-     width="70%" />
 
-<img src="https://github.com/user-attachments/assets/6aa60cbe-029d-49ed-b883-95c9b7e177df"
-     alt="Dynamic dashboard"
-     width="70%" />
-
-<img src="https://github.com/user-attachments/assets/ca6b1614-c6b2-4026-b41e-5af408fae69c"
-     alt="Dynamic dashboard"
-     width="70%" />
-
-<img src="https://github.com/user-attachments/assets/756d8dab-e76a-4ea6-a986-03d15d5f3bc3"
-     alt="Dynamic dashboard"
-     width="70%" />
-     
-<img src="https://github.com/user-attachments/assets/da9ae65a-b0a4-49e0-b072-b9abdbffad68"
-     alt="Dynamic dashboard"
-     width="70%" />
-
-#### Mean Reversion Trading 🧈
-
-<img src="https://github.com/user-attachments/assets/ae8f01cf-9cd1-4867-ba26-dfcae781ccff"
-     alt="Dynamic dashboard"
-     width="70%" />
 
 ## Round 4
   
