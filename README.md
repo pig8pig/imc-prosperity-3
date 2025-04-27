@@ -89,35 +89,31 @@ Prosperity 2’s data was publicly available, allowing teams to familiarize them
 
 ### Backtester
 
-For backtesting, we mainly relied on our own forked version of Jasper Merle’s open-source backtester (jmerle/prosperity-backtester) alongside the Prosperity website’s own backtesting functionality.
-Each served different, specific purposes in our workflow — for a detailed explanation of how we approached backtesting, please refer to the Backtesting Section.
+For backtesting, we mainly relied on our own forked version of Jmerle’s [open-source backtester](https://github.com/jmerle/imc-prosperity-3-backtester) alongside the Prosperity website’s own backtesting functionality.
+Each served different, specific purposes in our workflow — for a detailed explanation of how we approached backtesting, please refer to the [Backtesting Section](#how-to-properly-backtest).
 
 ### Dashboard
 
 We developed our own dashboard as a preparation for Prosperity 2, and further updated and improved it before Prosperity 3 — adding features that we didn’t have time to implement during the first competition.
 Since this dashboard will be heavily referenced when we explain our strategies and insights across all products, we’ll first give a detailed description of it here.
 
-Prosperity — like real-world trading — puts strong emphasis on market microstructure.
-A proper, intuitive order book visualization tool is essential for building the deep intuition necessary to recognize and exploit profitable patterns.
+Prosperity — like real-world trading — puts strong emphasis on [market microstructure](https://en.wikipedia.org/wiki/Market_microstructure). A proper, intuitive [order book](https://www.investopedia.com/terms/o/order-book.asp) visualization tool is essential for building the deep intuition necessary to recognize and exploit profitable patterns.
 
 Unlike many standard trading dashboards, we designed ours completely from scratch, based on what was actually most useful for this particular competition.
 Aesthetics were never our priority — everything was optimized purely for functionality and speed during use.
 (Please keep that in mind — we know it’s ugly!)
 
 ![dashboard explanation](https://github.com/user-attachments/assets/6c283b73-07e3-4b3a-b8b5-9b38cc51b314)
-<p align="center">
-  <em>we used to have actual section headers, but at some point we (Jerry and Eric) got hungry and started editing them</em>
-</p>
 
 In the main plot, you can see **price levels**:
 
-- **Ask (sell) quotes** are plotted in **red**.
-- **Bid (buy) quotes** are plotted in **blue**.
+- **[Ask](https://www.investopedia.com/terms/a/ask.asp) (sell) quotes** are plotted in **red**.
+- **[Bid](https://www.investopedia.com/terms/b/bid.asp) (buy) quotes** are plotted in **blue**.
 
 Markers represent **trades**:
 
-- **Squares** = trades by makers.
-- **Triangles** = trades by takers.
+- **Squares** = trades by [makers](https://www.cmegroup.com/education/courses/trading-and-analysis/market-makers-vs-market-takers.html#market-maker).
+- **Triangles** = trades by [takers](https://www.cmegroup.com/education/courses/trading-and-analysis/market-makers-vs-market-takers.html#market-taker).
 - **Crosses** = our own trades.
 
 Each numbered section in the dashboard corresponds to a specific functionality:
