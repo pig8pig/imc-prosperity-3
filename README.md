@@ -169,6 +169,35 @@ A key insight not just for Rainforest Resin but for all Prosperity products was 
 
 <table>
 <tr valign="top">
+<td width="100%" align="center">
+  <strong>Figure 1: Rainforest Resin Orderbook over Time</strong>
+</td>
+</tr>
+
+<tr valign="top">
+<td width="100%" align="center">
+  <img src="https://github.com/user-attachments/assets/54363d35-63ac-406f-b2de-ad6a06e7433d"
+       alt="Dynamic dashboard"
+       width="100%" />
+</td>
+</tr>
+
+<tr valign="top">
+<td width="100%" align="center">
+  <em>Snippet of orderbook over time for Rainforest Resin.  
+  Black stars are our quotes. Orange crosses are fills we got, profitable opportunities we immediately took, or trades at 10,000 we used to unwind inventory.</em>
+</td>
+</tr>
+</table>
+
+
+
+Our final strategy for Rainforest Resin was straightforward. Each timestep, we first immediately took any favorable trades available — buying below 10,000 or selling above it. Afterward, we placed passive quotes slightly better than any existing liquidity: overbidding on bids and undercutting on asks while maintaining positive edge. If inventory became too skewed, we flattened it at exactly 10,000 to free up risk capacity for the next opportunities. No sophisticated logic or aggressiveness was needed due to the stable true price and the clean snapshot-based trading model.
+
+Anyone could have come up with this approach by carefully reading the competition's matching rules and observing the environment during the tutorial round. Realizing that the true price was constant, fills were processed sequentially, and that orders only lived for one timestep simplified the problem dramatically. Having a basic visualization of price levels and logging fill quality would have made it even more obvious. Rainforest Resin alone consistently contributed around 35,000 SeaShells per round to our total PnL.
+
+<table>
+<tr valign="top">
 <td width="70%">
   <img src="https://github.com/user-attachments/assets/54363d35-63ac-406f-b2de-ad6a06e7433d"
        alt="Dynamic dashboard"
@@ -183,9 +212,7 @@ A key insight not just for Rainforest Resin but for all Prosperity products was 
 </table>
 
 
-Our final strategy for Rainforest Resin was straightforward. Each timestep, we first immediately took any favorable trades available — buying below 10,000 or selling above it. Afterward, we placed passive quotes slightly better than any existing liquidity: overbidding on bids and undercutting on asks while maintaining positive edge. If inventory became too skewed, we flattened it at exactly 10,000 to free up risk capacity for the next opportunities. No sophisticated logic or aggressiveness was needed due to the stable true price and the clean snapshot-based trading model.
 
-Anyone could have come up with this approach by carefully reading the competition's matching rules and observing the environment during the tutorial round. Realizing that the true price was constant, fills were processed sequentially, and that orders only lived for one timestep simplified the problem dramatically. Having a basic visualization of price levels and logging fill quality would have made it even more obvious. Rainforest Resin alone consistently contributed around 35,000 SeaShells per round to our total PnL.
 
 ### Kelp ⭐
 
