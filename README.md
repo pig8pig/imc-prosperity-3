@@ -251,34 +251,6 @@ Our final strategy for Kelp was nearly identical to that for Rainforest Resin. A
 
 Teams that approached Kelp correctly would have first verified whether takers or the market exhibited any predictability, either through simple empirical analysis or by observing that naive strategies (like quoting around the current price) worked well. Realizing that there was no meaningful adverse selection risk meant that treating Kelp identically to Rainforest Resin was the optimal path. On average, Kelp generated around 8,000 SeaShells per round, primarily limited by the tighter spreads compared to the first product.
 
-<table>
-<tr valign="top">
-<td width="70%">
-  <img src="https://github.com/user-attachments/assets/2a7c36dc-76b8-482d-934b-c9ee7ff527f6"
-       alt="Dynamic dashboard"
-       width="100%" />
-</td>
-<td width="30%">
-  <strong>Figure 2a: Kelp Orderbook over Time (Raw)</strong><br/>
-  <em>Same as Figure 1, but with Kelp's price movement.</em>
-</td>
-</tr>
-
-<tr valign="top">
-<td width="70%">
-  <img src="https://github.com/user-attachments/assets/80b5f2cb-ae7a-400b-aff0-311e977c2d58"
-       alt="Static, normalized dashboard"
-       width="100%" />
-</td>
-<td width="30%">
-  <strong>Figure 2b: Kelp Orderbook over Time (Normalized)</strong><br/>
-  <em>Same as Figure 2a, but every price got normalized (subtracted) with Wall Mid to make it stationary. Here one can see it is very similar to Rainforest Resin, except tighter bid-ask spread.</em>
-</td>
-</tr>
-</table>
-
-
-
 ### Squid Ink ⭐
 
 Squid Ink differed from the previous two products mainly in that it had a tighter bid-ask spread relative to its average movement, combined with occasional sharp price jumps. This made pure market-making less attractive, not because of systematic losses, but because it introduced higher variance in realized PnL. In other words, fills could swing more widely in value depending on unpredictable price jumps, even if there was no predictable adverse selection in the classic sense. Officially, the product was described as mean-reverting in the short term, suggesting that mean-reversion strategies might work. However, after investigating the market dynamics more carefully, we discovered an entirely different and more reliable opportunity.
@@ -287,29 +259,49 @@ Our main insight was that one of the anonymous bot traders consistently exhibite
 
 <table>
 <tr valign="top">
-<td width="70%">
-  <img src="https://github.com/user-attachments/assets/9f552b07-98e9-4488-b4b9-95b2e1435747"
-       alt="Dynamic dashboard"
-       width="100%" />
-</td>
-<td width="30%">
-  <strong>Figure 3a: Squid Ink Prices with Informed Trader</strong><br/>
-  <em>This plot shows that Olivia bought exactly at daily min and sold exactly at daily max.</em>
+<td width="100%" align="center">
+  <strong>Figure 3a: Squid Ink Prices with Informed Trader</strong>
 </td>
 </tr>
 
 <tr valign="top">
-<td width="70%">
+<td width="100%" align="center">
+  <img src="https://github.com/user-attachments/assets/9f552b07-98e9-4488-b4b9-95b2e1435747"
+       alt="Dynamic dashboard"
+       width="100%" />
+</td>
+</tr>
+
+<tr valign="top">
+<td width="100%" align="center">
+  <em>This plot shows that Olivia bought exactly at the daily minimum and sold exactly at the daily maximum.</em>
+</td>
+</tr>
+</table>
+
+<table>
+<tr valign="top">
+<td width="100%" align="center">
+  <strong>Figure 3b: Squid Ink Prices with Anonymous Trades</strong>
+</td>
+</tr>
+
+<tr valign="top">
+<td width="100%" align="center">
   <img src="https://github.com/user-attachments/assets/b6e23225-fd1f-4971-ad00-729ec2bdef8f"
        alt="Static, normalized dashboard"
        width="100%" />
 </td>
-<td width="30%">
-  <strong>Figure 3b: Squid Ink Prices with Anonymous Trades</strong><br/>
-  <em>This plot filtered all anonymous trades to only show trades with quantity=15 as it was for early rounds. One could have looked out for those and early identified them during the rounds 1-4.</em>
+</tr>
+
+<tr valign="top">
+<td width="100%" align="center">
+  <em>This plot filters all anonymous trades to only show trades with quantity = 15, as it appeared during early rounds.  
+  Careful teams could have spotted this pattern and identified Olivia's behavior during Rounds 1–4.</em>
 </td>
 </tr>
 </table>
+
 
 Our final strategy for Squid Ink focused purely on following this daily-extrema trading behavior, dynamically updating our positions based on detected trades and resetting when invalidations occurred. No active market making or mean reversion trading was used for this product. The result was a low-risk, high-reliability PnL contributor that did not rely on predicting price moves directly.
 
@@ -327,19 +319,31 @@ In quantitative trading, finding and exploiting such linkages — when the synth
 A deeper look revealed two main spread opportunities: first, trading the spread between the two baskets adjusted by Djembes (ETF1 - ETF2 + Djembes), and second, trading each basket relative to its synthetic value based on the underlying products (ETF - Constituents).
 While both avenues were possible, we quickly identified that comparing baskets directly to their constituent sums was the stronger and more reliable path.
 
+
+
 <table>
 <tr valign="top">
-<td width="70%">
+<td width="100%" align="center">
+  <strong>Figure 4: Basket Spreads over Time</strong>
+</td>
+</tr>
+
+<tr valign="top">
+<td width="100%" align="center">
   <img src="https://github.com/user-attachments/assets/9446a89f-fca0-4673-aec4-d65e09921129"
-       alt="Dynamic dashboard"
+       alt="Basket spread plot"
        width="100%" />
 </td>
-<td width="30%">
-  <strong>Figure 4: Basket Spreads over Time</strong><br/>
-  <em>This plot shows the spreads (basket price - synthetic balue) for both baskets over time.</em>
+</tr>
+
+<tr valign="top">
+<td width="100%" align="center">
+  <em>This plot shows the spreads (basket price minus synthetic value) for both Picnic Baskets over time, revealing short-term mean reversion patterns.</em>
 </td>
 </tr>
 </table>
+
+
 
 When approaching this kind of structure, it's crucial not to blindly apply textbook strategies but to first ask a fundamental question:
 How could the market data have been generated?
@@ -363,19 +367,31 @@ having already detected Olivia's trading behavior on Croissants (similar to Ink 
 For example, if our base threshold was ±50, detecting Olivia as short would shift the long entry to -80 and the short entry to +20, dynamically tilting our bias in the favorable direction.
 This cross-product adjustment allowed us to intelligently exploit correlations between Croissants and the baskets without overcomplicating the system.
 
+
 <table>
 <tr valign="top">
-<td width="70%">
+<td width="100%" align="center">
+  <strong>Figure 5: Optimal Parameter Search Grid</strong>
+</td>
+</tr>
+
+<tr valign="top">
+<td width="100%" align="center">
   <img src="https://github.com/user-attachments/assets/3b0f9a5d-e21e-41e3-82df-d96789ace379"
-       alt="Dynamic dashboard"
+       alt="Optimal parameter grid search"
        width="100%" />
 </td>
-<td width="30%">
-  <strong>Figure 5: Optimal Parameter Search Grid</strong><br/>
-  <em>These plots show backtesting basket pnls for each pair of parameters where the left plot corresponds to basket1 and the right one to basket2. num_param_1 corresponds to base thresholds, num_param_2 corresponds to the informed thresholds adjustments according to Olivia's position.</em>
+</tr>
+
+<tr valign="top">
+<td width="100%" align="center">
+  <em>These plots show the backtested basket PnLs across different parameter combinations.  
+  The left plot corresponds to Basket 1, and the right plot to Basket 2.  
+  <code>num_param_1</code> represents the base threshold values, while <code>num_param_2</code> controls the informed threshold adjustments based on Olivia's position.</em>
 </td>
 </tr>
 </table>
+
 
 During parameter selection, we always prioritized landscape stability over pure performance peaks.
 Rather than picking the best parameter set based on maximum backtested profit, we chose combinations that showed consistent, flat regions of good performance, reducing sensitivity to slight shifts and avoiding overfit disasters.
@@ -410,76 +426,131 @@ By fitting a parabola to the observed IVs across strikes and then detrending (su
 
 <table>
 <tr valign="top">
-<td width="70%">
-  <img src="https://github.com/user-attachments/assets/49be51d8-4335-4831-adb0-e811e50ce450"
-       alt="Dynamic dashboard"
-       width="100%" />
-</td>
-<td width="30%">
-  <strong>Figure 6a: Volatility Smile</strong><br/>
-  <em>This scatter plot visualizes implied volatility (v_t) vs moneyness (m_t) for different strikes. It also shows a fitted parabola to filter out noise and get v_hat_t for a given m_t essentially resembling the "fair" v_t given m_t. Outliers at the bottom left were disregarded as they referred to historical times where extrinsic value was too low.</em>
+<td width="100%" align="center">
+  <strong>Figure 6a: Volatility Smile</strong>
 </td>
 </tr>
 
 <tr valign="top">
-<td width="70%">
-  <img src="https://github.com/user-attachments/assets/6aa60cbe-029d-49ed-b883-95c9b7e177df"
-       alt="Static, normalized dashboard"
+<td width="100%" align="center">
+  <img src="https://github.com/user-attachments/assets/49be51d8-4335-4831-adb0-e811e50ce450"
+       alt="Volatility smile scatter plot"
        width="100%" />
 </td>
-<td width="30%">
-  <strong>Figure 6b: IV Deviations over Time</strong><br/>
-  <em>This plot visualizes the deviations (v_t - v_hat_t) from 6a over time.</em>
+</tr>
+
+<tr valign="top">
+<td width="100%" align="center">
+  <em>This scatter plot visualizes implied volatility (<em>v<sub>t</sub></em>) versus moneyness (<em>m<sub>t</sub></em>) across different strikes.  
+  A fitted parabola is shown to filter out noise, producing <em>v̂<sub>t</sub></em> — the "fair" implied volatility given <em>m<sub>t</sub></em>.  
+  Outliers at the bottom left were disregarded, as they corresponded to historical points where extrinsic value was too low.</em>
 </td>
 </tr>
 </table>
+
+<table>
+<tr valign="top">
+<td width="100%" align="center">
+  <strong>Figure 6b: IV Deviations over Time</strong>
+</td>
+</tr>
+
+<tr valign="top">
+<td width="100%" align="center">
+  <img src="https://github.com/user-attachments/assets/6aa60cbe-029d-49ed-b883-95c9b7e177df"
+       alt="IV deviations plot"
+       width="100%" />
+</td>
+</tr>
+
+<tr valign="top">
+<td width="100%" align="center">
+  <em>This plot shows the time series of implied volatility deviations (<em>v<sub>t</sub> - v̂<sub>t</sub></em>) derived from Figure 6a, highlighting short-term patterns in relative option mispricing.</em>
+</td>
+</tr>
+</table>
+
 
 To convert these into actionable trading signals, we input the volatility-smile-implied IV into a Black-Scholes model to calculate a theoretical fair price, then compared it to the actual market price to find price deviations.
 Plots of these price deviations — especially for the 10,000 strike call early on — revealed sharp short-term fluctuations, indicating scalping opportunities.
 
+
+
 <table>
 <tr valign="top">
-<td width="70%">
+<td width="100%" align="center">
+  <strong>Figure 6c: Price Deviations over Time</strong>
+</td>
+</tr>
+
+<tr valign="top">
+<td width="100%" align="center">
   <img src="https://github.com/user-attachments/assets/ca6b1614-c6b2-4026-b41e-5af408fae69c"
-       alt="Dynamic dashboard"
+       alt="Price deviations plot"
        width="100%" />
 </td>
-<td width="30%">
-  <strong>Figure 6c: Price Deviations over Time</strong><br/>
-  <em>This plot shows the deviations from 6b, just transformed into price space.</em>
+</tr>
+
+<tr valign="top">
+<td width="100%" align="center">
+  <em>This plot shows the same implied volatility deviations from Figure 6b, but transformed into price space using the Black-Scholes model, providing a more intuitive view of relative mispricings over time.</em>
 </td>
 </tr>
 </table>
+
 
 We initially focused on the 10,000 strike, but dynamically expanded to include other strikes as the underlying shifted and expiry approached, tracking profitability thresholds in real time to decide when to activate scalping on new options.
 Statistical analysis, specifically testing for 1-lag negative autocorrelation in returns, strongly supported the existence of exploitable short-term inefficiencies across several strikes, further validating this approach.
 
 
+
 <table>
 <tr valign="top">
-<td width="70%">
-  <img src="https://github.com/user-attachments/assets/756d8dab-e76a-4ea6-a986-03d15d5f3bc3"
-       alt="Dynamic dashboard"
-       width="100%" />
-</td>
-<td width="30%">
-  <strong>Figure 7a: 10k Call Price Fluctuations</strong><br/>
-  <em>This plot shows the 10,000 call short term price fluctuations. The orange indicator refers to the theoretical call price using IV from the parabola (v_hat_t) given it's current moneyness.</em>
+<td width="100%" align="center">
+  <strong>Figure 7a: 10k Call Price Fluctuations</strong>
 </td>
 </tr>
 
 <tr valign="top">
-<td width="70%">
-  <img src="https://github.com/user-attachments/assets/da9ae65a-b0a4-49e0-b072-b9abdbffad68"
-       alt="Static, normalized dashboard"
+<td width="100%" align="center">
+  <img src="https://github.com/user-attachments/assets/756d8dab-e76a-4ea6-a986-03d15d5f3bc3"
+       alt="10k call price fluctuations"
        width="100%" />
 </td>
-<td width="30%">
-  <strong>Figure 7b: 10k Call Price Fluctuations (normalized)</strong><br/>
-  <em>This es the exact same plot as 7a, except prices were normalized by the orange indicator to make deviations - for visibility purposes - more stationary.</em>
+</tr>
+
+<tr valign="top">
+<td width="100%" align="center">
+  <em>This plot shows short-term price fluctuations of the 10,000 strike call option.  
+  The orange indicator represents the theoretical call price, calculated using the implied volatility from the fitted parabola (<em>v̂<sub>t</sub></em>) at the option’s current moneyness.</em>
 </td>
 </tr>
 </table>
+
+
+<table>
+<tr valign="top">
+<td width="100%" align="center">
+  <strong>Figure 7b: 10k Call Price Fluctuations (Normalized)</strong>
+</td>
+</tr>
+
+<tr valign="top">
+<td width="100%" align="center">
+  <img src="https://github.com/user-attachments/assets/da9ae65a-b0a4-49e0-b072-b9abdbffad68"
+       alt="Normalized 10k call price fluctuations"
+       width="100%" />
+</td>
+</tr>
+
+<tr valign="top">
+<td width="100%" align="center">
+  <em>This plot shows the same 10,000 strike call fluctuations as in Figure 7a,  
+  but with prices normalized by the theoretical value (orange indicator) to make deviations more stationary and visually clear.</em>
+</td>
+</tr>
+</table>
+
 
 #### Mean Reversion Trading 🧈
 
@@ -489,16 +560,26 @@ Autocorrelation analysis of Volcanic Rock returns, compared against randomized n
 Given the limited historical data available (only three days), and uncertainty about future dynamics, fully committing to mean reversion was considered too risky.
 Instead, we implemented a lightweight mean reversion model: tracking a fast rolling Exponential Moving Average (EMA) and trading deviations from this EMA using fixed thresholds — without scaling by rolling volatility — to keep the model simple and robust.
 
+
 <table>
 <tr valign="top">
-<td width="70%">
+<td width="100%" align="center">
+  <strong>Figure 8: Autocorrelation Plot for Volcanic Rock</strong>
+</td>
+</tr>
+
+<tr valign="top">
+<td width="100%" align="center">
   <img src="https://github.com/user-attachments/assets/ae8f01cf-9cd1-4867-ba26-dfcae781ccff"
-       alt="Dynamic dashboard"
+       alt="Autocorrelation plot for Volcanic Rock"
        width="100%" />
 </td>
-<td width="30%">
-  <strong>Figure 8: Autocorrelation Plot for VR</strong><br/>
-  <em>rolling autocorrelation of Volcanic Rock versus truly random sequences suggesting mean reversion behavior.</em>
+</tr>
+
+<tr valign="top">
+<td width="100%" align="center">
+  <em>Rolling autocorrelation of Volcanic Rock returns compared to autocorrelations from purely random sequences,  
+  suggesting statistically significant mean reversion behavior in the underlying.</em>
 </td>
 </tr>
 </table>
@@ -538,29 +619,53 @@ Of course, those conditions were not always present and realistic optimal profit
 
 <table>
 <tr valign="top">
-<td width="70%">
-  <img src="https://github.com/user-attachments/assets/9985cdce-a23c-4f89-b288-7709160c1548"
-       alt="Dynamic dashboard"
-       width="100%" />
-</td>
-<td width="30%">
-  <strong>Figure 9a: Macarons Microstructure</strong><br/>
-  <em>This plot shows many (~60%) fills at a price better than local best bid. The orange indicator shows the external ask after costs (price for which we can convert negative inventory). It also shows that a straight forward local best bid to external ask arbitrage was currently not profitable.</em>
+<td width="100%" align="center">
+  <strong>Figure 9a: Macarons Microstructure</strong>
 </td>
 </tr>
 
 <tr valign="top">
-<td width="70%">
-  <img src="https://github.com/user-attachments/assets/6822bdc7-1f44-4d43-9df3-289c6e7900a9"
-       alt="Static, normalized dashboard"
+<td width="100%" align="center">
+  <img src="https://github.com/user-attachments/assets/9985cdce-a23c-4f89-b288-7709160c1548"
+       alt="Macarons microstructure plot"
        width="100%" />
 </td>
-<td width="30%">
-  <strong>Figure 9b: Macarons Microstructure (normalized)</strong><br/>
-  <em>This plot shows the same as 9a except it is normalized be the orange indicator (external ask after costs). It clearly demonstrates the price improvement versus local best bid. While in the snippet, the local best bid was unprofitable with about -1 SeaShell, we often got filled at a 2 SeaShell profitable opportunity.</em>
+</tr>
+
+<tr valign="top">
+<td width="100%" align="center">
+  <em>This plot shows approximately 60% of fills occurring at prices better than the local best bid.  
+  The orange indicator represents the external ask after costs (i.e., the conversion price for negative inventory).  
+  It also illustrates that straightforward local best bid to external ask arbitrage was not profitable during this period.</em>
 </td>
 </tr>
 </table>
+
+
+<table>
+<tr valign="top">
+<td width="100%" align="center">
+  <strong>Figure 9b: Macarons Microstructure (Normalized)</strong>
+</td>
+</tr>
+
+<tr valign="top">
+<td width="100%" align="center">
+  <img src="https://github.com/user-attachments/assets/6822bdc7-1f44-4d43-9df3-289c6e7900a9"
+       alt="Normalized Macarons microstructure plot"
+       width="100%" />
+</td>
+</tr>
+
+<tr valign="top">
+<td width="100%" align="center">
+  <em>This plot shows the same data as Figure 9a, but normalized by the external ask after costs (orange indicator).  
+  It clearly demonstrates the achievable price improvement versus the local best bid:  
+  while the local best bid was about -1 SeaShell unprofitable in this snippet, fills often occurred at +2 SeaShell profitable levels.</em>
+</td>
+</tr>
+</table>
+
 
 
 Our final strategy focused on reliably exploiting this hidden arbitrage.
