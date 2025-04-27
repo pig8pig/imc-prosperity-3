@@ -78,9 +78,11 @@ For full documentation on the algorithmic trading environment and more competiti
   - [How to properly backtest?](#how-to-properly-backtest)
   - [How to break into quant trading?](#how-to-break-into-quant-trading)
   - [Is Discord useful?](#discord-useful)
+  - [What was going on with all the hardcoding in the first two rounds?](#what-was-going-on-with-all-the-hardcoding-in-the-first-two-rounds)
   - [What else did we try?](#what-else-did-we-try)
 
 <br>
+
 
 ## Tools
 
@@ -134,12 +136,12 @@ Each numbered section in the dashboard corresponds to a specific functionality:
 5. **Selection Controls** 🎯  
    Allows selecting:
    - The log file.
-   - The product (e.g., Kelp).
+   - The product (e.g. Kelp).
    - Specific **logged indicators** to overlay onto prices.
    
    A powerful feature here is the **normalization dropdown**:  
-   By selecting an indicator (e.g., `wall_mid` — our proxy for the "true price"), all prices can be normalized relative to it.  
-   This is extremely useful for visualizing strategies like mean reversion (When having **PICNIC_BASKET1** selected normalizing by the sum of its constituents perfectly demonstrates the mean reversion of the baskets premium still maintaining the orderbook style).
+   By selecting an indicator (e.g., [WallMid](#what-is-wall-mid-and-why-did-we-use-it) — our proxy for the "true price"), all prices can be normalized relative to it.  
+   This is extremely useful for visualizing strategies like mean reversion (When having **PICNIC_BASKET1** selected normalizing by the sum of its constituents perfectly demonstrates the mean reversion of the [basket's premium](https://www.fidelity.com/learning-center/investment-products/etf/premiums-discounts-etfs) still maintaining the orderbook plotting style).
 
 6. **Trade Filtering and Visualization** 🔎  
    Controls what types of trades and order book elements to display:
@@ -167,9 +169,9 @@ Notes:
 
 ### Rainforest Resin 🔮
 
-Rainforest Resin was the simplest and most beginner-friendly product in Prosperity 3, perfectly suited to teach the fundamentals of market making. The product’s true price was permanently fixed at 10,000, meaning there were no intrinsic price movements to worry about. This setup clearly demonstrated the roles of makers and takers: takers would cross the true price by either buying above 10,000 or selling below it, while makers posted passive orders hoping to be matched. The only thing that mattered for profitability here was the distance between the trade price and the true price — commonly referred to as the "edge." In short, the further you could buy below 10,000 or sell above 10,000, the better.
+Rainforest Resin was the simplest and most beginner-friendly product in Prosperity 3, perfectly suited to teach the fundamentals of [market making](https://www.investopedia.com/terms/m/marketmaker.asp). The product’s true price was permanently fixed at 10,000, meaning there were no intrinsic price movements to worry about. This setup clearly demonstrated the roles of [makers](https://www.cmegroup.com/education/courses/trading-and-analysis/market-makers-vs-market-takers.html#market-maker) and [takers](https://www.cmegroup.com/education/courses/trading-and-analysis/market-makers-vs-market-takers.html#market-taker): takers would cross the true price by either buying above 10,000 or selling below it, while makers posted passive orders hoping to be [matched](https://www.investopedia.com/terms/m/matchingorders.asp). The only thing that mattered for profitability here was the distance between the trade price and the true price — commonly referred to as the "edge." In short, the further you could buy below 10,000 or sell above 10,000, the better.
 
-A key insight not just for Rainforest Resin but for all Prosperity products was understanding how the simulation handled order flow. At the start of every new timestep, the simulation first cleared all previous orders. Then, it sequentially processed new submissions: first some deep-liquidity makers, then small takers, then our own bot’s actions (take or make), followed by other bots — usually more takers. This structure meant that speed and order cancellation were irrelevant: you had a full snapshot of the book and could submit any combination of passive or aggressive orders without racing against anyone. For Rainforest Resin, this confirmed that all focus should be on carefully optimizing the edge versus fill probability trade-off.
+A key insight not just for Rainforest Resin but for all Prosperity products was understanding how the simulation handled order flow. At the start of every new timestep, the simulation first cleared all previous orders. Then, it sequentially processed new submissions: first some deep-liquidity makers, then occationally some takers, then our own bot’s actions (take or make), followed by other bots — usually more takers. This structure meant that speed and order cancellation were irrelevant: you had a full snapshot of the book and could submit any combination of passive or aggressive orders without racing against anyone. For Rainforest Resin, this confirmed that all focus should be on carefully optimizing the edge versus fill probability trade-off.
 
 <table>
 <tr valign="top">
@@ -194,17 +196,17 @@ A key insight not just for Rainforest Resin but for all Prosperity products was 
 </tr>
 </table>
 
-Our final strategy for Rainforest Resin was straightforward. Each timestep, we first immediately took any favorable trades available — buying below 10,000 or selling above it. Afterward, we placed passive quotes slightly better than any existing liquidity: overbidding on bids and undercutting on asks while maintaining positive edge. If inventory became too skewed, we flattened it at exactly 10,000 to free up risk capacity for the next opportunities. No sophisticated logic or aggressiveness was needed due to the stable true price and the clean snapshot-based trading model.
+Our final strategy for Rainforest Resin was straightforward. Each timestep, we first immediately took any favorable trades available — buying below 10,000 or selling above it. Afterward, we placed passive quotes slightly better than any existing liquidity (existing orders in orderbook): overbidding on [bids](https://www.investopedia.com/terms/a/bid.asp) and undercutting on [asks](https://www.investopedia.com/terms/a/ask.asp) while maintaining positive edge. If inventory became too skewed, we flattened it at exactly 10,000 to free up risk capacity for the next opportunities. No sophisticated logic or aggressiveness was needed due to the stable true price and the clean snapshot-based trading model.
 
-Anyone could have come up with this approach by carefully reading the competition's matching rules and observing the environment during the tutorial round. Realizing that the true price was constant, fills were processed sequentially, and that orders only lived for one timestep simplified the problem dramatically. Having a basic visualization of price levels and logging fill quality would have made it even more obvious. Rainforest Resin alone consistently contributed around 35,000 SeaShells per round to our total PnL.
+Anyone could have come up with this approach by carefully studying the competition's matching rules and observing the environment during the tutorial round. Realizing that the true price was constant, fills were processed sequentially, and that orders only lived for one timestep simplified the problem dramatically. Having a basic visualization of price levels and logging fill quality would have made it even more obvious. Rainforest Resin alone consistently contributed around 35,000 SeaShells per round to our total PnL.
 
 <br>
 
 ### Kelp ⭐
 
-Kelp was very similar in nature to Rainforest Resin, with the only major difference being that its price could move slightly from one timestep to the next. Instead of a fixed true price like Rainforest Resin, Kelp's true price followed a slow random walk. However, this movement was minor enough that the basic structure of the problem remained unchanged. Buyers and sellers still interacted as takers when crossing the fair price, and makers earned profits based on how far their trades deviated from the true price at the moment of execution.
+Kelp was very similar in nature to Rainforest Resin, with the only major difference being that its price could move slightly from one timestep to the next. Instead of a fixed true price like Rainforest Resin, Kelp's true price followed a slow [random walk](https://www.investopedia.com/terms/r/randomwalktheory.asp). However, this movement was minor enough that the basic structure of the problem remained unchanged. Buyers and sellers still interacted as takers when crossing the fair price, and makers earned profits based on how far their trades deviated from the true price at the moment of execution.
 
-The critical insight for Kelp was recognizing that, despite small movements, the future price was essentially unpredictable. Once teams realized that takers lacked predictive power and that the next true price could not be systematically forecasted, it became clear that the best available estimate for the true price was simply the current one. In fact, while there was a minor technical edge — stemming from the fact that the true price was internally a floating-point value and orders could only be posted at integer levels (creating slight mean-reversion tendencies after ticks) — this effect was too small to materially alter strategy. Just like with Rainforest Resin, the optimal approach was to treat the "wall mid" [LINK] as the fair price and quote around it.
+The critical insight for Kelp was recognizing that, despite small movements, the future price was essentially unpredictable. Once teams realized that takers lacked predictive power and that the next true price could not be systematically forecasted, it became clear that the best available estimate for the true price was simply the current one. In fact, while there was a minor technical edge — stemming from the fact that the true price was internally a floating-point value and orders could only be posted at integer levels (creating slight mean-reversion tendencies after ticks) — this effect was too small to materially alter strategy. Just like with Rainforest Resin, the optimal approach was to treat the [WallMid](#what-is-wall-mid-and-why-did-we-use-it) as the fair price and quote around it.
 
 <table>
 <tr valign="top">
@@ -261,7 +263,7 @@ Teams that approached Kelp correctly would have first verified whether takers or
 
 ### Squid Ink ⭐
 
-Squid Ink differed from the previous two products mainly in that it had a tighter bid-ask spread relative to its average movement, combined with occasional sharp price jumps. This made pure market-making less attractive, not because of systematic losses, but because it introduced higher variance in realized PnL. In other words, fills could swing more widely in value depending on unpredictable price jumps, even if there was no predictable adverse selection in the classic sense. Officially, the product was described as mean-reverting in the short term, suggesting that mean-reversion strategies might work. However, after investigating the market dynamics more carefully, we discovered an entirely different and more reliable opportunity.
+Squid Ink differed from the previous two products mainly in that it had a tighter bid-ask spread relative to its average movement, combined with occasional sharp price jumps. This made pure market-making less attractive, not because of systematic losses, but because it introduced higher variance in realized PnL. In other words, fills could swing more widely in value depending on unpredictable price jumps, even if there was no predictable [adverse selection](https://www.investopedia.com/terms/a/adverseselection.asp) in the classic sense. Officially, the product was described as mean-reverting in the short term, suggesting that mean-reversion strategies might work. However, after investigating the market dynamics more carefully, we discovered an entirely different and more reliable opportunity.
 
 Our main insight was that one of the anonymous bot traders consistently exhibited a strikingly predictable pattern: buying 15 lots at the daily low and selling 15 lots at the daily high. We observed this behavior early on, without initially knowing who the trader was. It was only in the final round — when trader IDs were temporarily visible — that we learned this trader was named Olivia. Anticipating this kind of behavior and designing logic to detect it gave us a clear edge. Without revealing our exact identification method (to avoid encouraging blind copying), the general approach involved tracking the daily running minimum and maximum. When a trade occurred at a daily extreme — and in the expected direction relative to the mid price — we flagged it as a signal and positioned accordingly. False positives were managed by monitoring for corresponding new extrema that contradicted earlier signals.
 
@@ -313,7 +315,7 @@ Our main insight was that one of the anonymous bot traders consistently exhibite
 
 Our final strategy for Squid Ink focused purely on following this daily-extrema trading behavior, dynamically updating our positions based on detected trades and resetting when invalidations occurred. No active market making or mean reversion trading was used for this product. The result was a low-risk, high-reliability PnL contributor that did not rely on predicting price moves directly.
 
-Anyone who carefully analyzed historical Prosperity 2 data or public write-ups — such as Stanford Cardinal’s or Jasper's — could have anticipated similar behaviors and prepared detection logic in advance. We also discovered and executed this strategy on another product in Prosperity 2 without having participated in Prosperity 1. Early identification of this behavior consistently netted us around 8,000 SeaShells per round, providing a stable and important edge in Round 1.
+Anyone who carefully analyzed historical Prosperity 2 data or public write-ups — such as [Stanford Cardinal’s](https://github.com/ShubhamAnandJain/IMC-Prosperity-2023-Stanford-Cardinal) or [Jasper's](https://github.com/jmerle/imc-prosperity-2) — could have anticipated similar behaviors and prepared detection logic in advance. We also discovered and executed this strategy on another product in Prosperity 2 without having participated in Prosperity 1. Early identification of this behavior consistently netted us around 8,000 SeaShells per round, providing a stable and important edge in Round 1.
 
 <br>
 
@@ -717,8 +719,9 @@ Weeks of careful preparation before the competition allowed us to build strong i
 Rather than relying on blind optimization or overly complex machine learning models, we focused on simple, robust strategies, critically questioning the validity of every signal and making sure we understood why an edge should exist before committing to it.
 Throughout the competition, we maintained a disciplined skepticism toward strategies that appeared to work "in backtest" but lacked theoretical or empirical justification.
 
-Ultimately, we are proud of how we approached the challenge: balancing rigor, adaptability, and humility throughout.
-While the final ranking might not fully reflect the consistent quality of our decisions, we believe that the methodology and principles we applied offer a much deeper measure of success — and serve as a strong foundation for eventual future competitions and real-world trading alike.
+Ultimately, we are proud of how we approached the challenge: balancing rigor, adaptability, and humility throughout. We believe that the methodology and principles we applied offer serve as a strong foundation for eventual future competitions and real-world trading alike. 
+
+We genuinely hope that teams of all experience levels could learn something valuable from this algorithmic write-up — whether you're preparing for a future Prosperity competition or simply looking to deepen your understanding of algorithmic trading. Our goal was not just to present strategies, but to share the full depth of our thinking: how we approached each problem, how anyone could have discovered the same insights, and the critical reasoning behind every decision. We tried to explain everything we knew as transparently as possible, in the hope that it can serve both as a strong starting point for new participants and as a thoughtful reference for anyone aiming to push their skills further next year.
 
 PS: How does it feel to get smoked by some business undergrads? 😜
 
@@ -838,6 +841,19 @@ Additionally, a form of psychological warfare is common: participants might post
 It’s important to stay calm, stick to your own validation methods, and avoid the trap of overfitting or changing your approach impulsively just because of noise on Discord.
 
 🎯 In short: Use Discord strategically to stay informed — but maintain a cool head and focus on your own robust development process.
+
+## What was going on with all the hardcoding in the first two rounds?
+
+In the first two rounds, a specific issue existed related to bot behavior replication from earlier competitions. While the underlying true prices were regenerated for Prosperity 3 (unlike Prosperity 2, where some price paths were reused, see [LinearUtility's Writeup](https://github.com/ericcccsliu/imc-prosperity-2/tree/main)), the bot behavior itself was still almost identical to previous years — matching with over 95% accuracy in most cases.
+
+This created an unintended loophole: teams could "hardcode" their trading decisions based on historical bot actions. For example, in Rainforest Resin (similar to last year's Amethysts), if a bot historically submitted a market order at timestep 600, teams could hardcode their own algorithm to preemptively take all ask liquidity just before that bot arrived — virtually guaranteeing fills at better prices.
+
+We discovered this early and initially implemented a frontrunning strategy ourselves, given that a similar situation had gone unaddressed in Prosperity 2 (see [LinearUtility's Writeup](https://github.com/ericcccsliu/imc-prosperity-2/tree/main)).  
+However, unlike some teams, we also built a fallback system: if the bots' behavior changed or was fixed mid-competition, our algorithm would automatically revert to a normal, non-hardcoded trading strategy. This safety measure came at a cost — the fallback logic introduced exploration costs and slight performance degradation compared to default algorithm.
+
+After Round 2, we reported the hardcoding exploit to IMC directly. In response, IMC officially fixed the bot behavior to prevent hardcoding from Round 3 onward and banned such tactics for the rest of the competition. Additionally, they allowed teams to resubmit corrected algorithms and reran the first two rounds to ensure fairness. Interestingly, one of the teams that ultimately overtook us in the final standings had also been relying on hardcoding early on — and without the resubmission opportunity we advocated for, they might not have been able to catch us by the end.
+
+While this turned out to be a funny and slightly ironic anecdote, we're proud that we pushed for a fairer competition, even at a potential cost to ourselves.
 
 ## What else did we try?
 
