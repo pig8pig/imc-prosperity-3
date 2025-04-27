@@ -190,28 +190,9 @@ A key insight not just for Rainforest Resin but for all Prosperity products was 
 </tr>
 </table>
 
-
-
 Our final strategy for Rainforest Resin was straightforward. Each timestep, we first immediately took any favorable trades available — buying below 10,000 or selling above it. Afterward, we placed passive quotes slightly better than any existing liquidity: overbidding on bids and undercutting on asks while maintaining positive edge. If inventory became too skewed, we flattened it at exactly 10,000 to free up risk capacity for the next opportunities. No sophisticated logic or aggressiveness was needed due to the stable true price and the clean snapshot-based trading model.
 
 Anyone could have come up with this approach by carefully reading the competition's matching rules and observing the environment during the tutorial round. Realizing that the true price was constant, fills were processed sequentially, and that orders only lived for one timestep simplified the problem dramatically. Having a basic visualization of price levels and logging fill quality would have made it even more obvious. Rainforest Resin alone consistently contributed around 35,000 SeaShells per round to our total PnL.
-
-<table>
-<tr valign="top">
-<td width="70%">
-  <img src="https://github.com/user-attachments/assets/54363d35-63ac-406f-b2de-ad6a06e7433d"
-       alt="Dynamic dashboard"
-       width="100%" />
-</td>
-<td width="30%">
-  <strong>Figure 1: Rainforest Resin Orderbook over Time</strong><br/>
-  <em>Snippet of orderbook over time for Rainforest Resin.  
-  Black stars are our quotes. Orange crosses are fills we got, profitable opportunities we immediately took, or trades at 10,000 we used to unwind inventory.</em>
-</td>
-</tr>
-</table>
-
-
 
 
 ### Kelp ⭐
@@ -219,6 +200,56 @@ Anyone could have come up with this approach by carefully reading the competitio
 Kelp was very similar in nature to Rainforest Resin, with the only major difference being that its price could move slightly from one timestep to the next. Instead of a fixed true price like Rainforest Resin, Kelp's true price followed a slow random walk. However, this movement was minor enough that the basic structure of the problem remained unchanged. Buyers and sellers still interacted as takers when crossing the fair price, and makers earned profits based on how far their trades deviated from the true price at the moment of execution.
 
 The critical insight for Kelp was recognizing that, despite small movements, the future price was essentially unpredictable. Once teams realized that takers lacked predictive power and that the next true price could not be systematically forecasted, it became clear that the best available estimate for the true price was simply the current one. In fact, while there was a minor technical edge — stemming from the fact that the true price was internally a floating-point value and orders could only be posted at integer levels (creating slight mean-reversion tendencies after ticks) — this effect was too small to materially alter strategy. Just like with Rainforest Resin, the optimal approach was to treat the "wall mid" [LINK] as the fair price and quote around it.
+
+<table>
+<tr valign="top">
+<td width="100%" align="center">
+  <strong>Figure 2a: Kelp Orderbook over Time (Raw)</strong>
+</td>
+</tr>
+
+<tr valign="top">
+<td width="100%" align="center">
+  <img src="https://github.com/user-attachments/assets/2a7c36dc-76b8-482d-934b-c9ee7ff527f6"
+       alt="Dynamic dashboard"
+       width="100%" />
+</td>
+</tr>
+
+<tr valign="top">
+<td width="100%" align="center">
+  <em>Same as Figure 1, but showing Kelp's price movement over time.</em>
+</td>
+</tr>
+</table>
+
+<table>
+<tr valign="top">
+<td width="100%" align="center">
+  <strong>Figure 2b: Kelp Orderbook over Time (Normalized)</strong>
+</td>
+</tr>
+
+<tr valign="top">
+<td width="100%" align="center">
+  <img src="https://github.com/user-attachments/assets/80b5f2cb-ae7a-400b-aff0-311e977c2d58"
+       alt="Static, normalized dashboard"
+       width="100%" />
+</td>
+</tr>
+
+<tr valign="top">
+<td width="100%" align="center">
+  <em>Same as Figure 2a, but with prices normalized by the Wall Mid indicator to make the series stationary.  
+  Notice how it resembles Rainforest Resin, but with a tighter bid-ask spread.</em>
+</td>
+</tr>
+</table>
+
+
+Our final strategy for Kelp was nearly identical to that for Rainforest Resin. At each timestep, we first immediately took any favorable trades available relative to the current wall mid, then placed slightly improved passive orders (overbidding and undercutting) around the fair price. If inventory became too large, we neutralized it by trading at zero edge relative to the current price estimate. No major changes were needed compared to the first product.
+
+Teams that approached Kelp correctly would have first verified whether takers or the market exhibited any predictability, either through simple empirical analysis or by observing that naive strategies (like quoting around the current price) worked well. Realizing that there was no meaningful adverse selection risk meant that treating Kelp identically to Rainforest Resin was the optimal path. On average, Kelp generated around 8,000 SeaShells per round, primarily limited by the tighter spreads compared to the first product.
 
 <table>
 <tr valign="top">
@@ -246,9 +277,7 @@ The critical insight for Kelp was recognizing that, despite small movements, the
 </tr>
 </table>
 
-Our final strategy for Kelp was nearly identical to that for Rainforest Resin. At each timestep, we first immediately took any favorable trades available relative to the current wall mid, then placed slightly improved passive orders (overbidding and undercutting) around the fair price. If inventory became too large, we neutralized it by trading at zero edge relative to the current price estimate. No major changes were needed compared to the first product.
 
-Teams that approached Kelp correctly would have first verified whether takers or the market exhibited any predictability, either through simple empirical analysis or by observing that naive strategies (like quoting around the current price) worked well. Realizing that there was no meaningful adverse selection risk meant that treating Kelp identically to Rainforest Resin was the optimal path. On average, Kelp generated around 8,000 SeaShells per round, primarily limited by the tighter spreads compared to the first product.
 
 ### Squid Ink ⭐
 
