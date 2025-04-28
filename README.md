@@ -39,8 +39,7 @@ This report goes far beyond just presenting our final strategies.
 We not only break down those strategies and insights that worked for us, but also share the thought processes and decisions behind them.
 That said, this document is mainly intended for fellow or future Prosperity participants, since it focuses specifically on Prosperity 3.
 If you're more interested in how we consistently stayed at the top across multiple competitions — and want general advice on how to compete against thousands of teams — check out our separate blog post:
-<br />
-<a href="https://www.linkedin.com/in/timo-diehm">How to (Almost) Win Against Thousands of Other Teams (link). </a>
+#### [How to (Almost) Win Against Thousands of Other Teams in Competitive Environments](https://medium.com/@td.timodiehm/how-to-almost-win-against-thousands-of-other-teams-in-competitive-environments-bc31387e4b26)
 
 <br>
 
