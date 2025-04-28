@@ -196,6 +196,8 @@ A key insight not just for Rainforest Resin but for all Prosperity products was 
 </tr>
 </table>
 
+#### Final Strategy
+
 Our final strategy for Rainforest Resin was straightforward. Each timestep, we first immediately took any favorable trades available — buying below 10,000 or selling above it. Afterward, we placed passive quotes slightly better than any existing liquidity (existing orders in orderbook): overbidding on [bids](https://www.investopedia.com/terms/a/bid.asp) and undercutting on [asks](https://www.investopedia.com/terms/a/ask.asp) while maintaining positive edge. If inventory became too skewed, we flattened it at exactly 10,000 to free up risk capacity for the next opportunities. No sophisticated logic or aggressiveness was needed due to the stable true price and the clean snapshot-based trading model.
 
 Anyone could have come up with this approach by carefully studying the competition's matching rules and observing the environment during the tutorial round. Realizing that the true price was constant, fills were processed sequentially, and that orders only lived for one timestep simplified the problem dramatically. Having a basic visualization of price levels and logging fill quality would have made it even more obvious. Rainforest Resin alone consistently contributed around 39,000 SeaShells per round to our total PnL.
@@ -254,6 +256,7 @@ The critical insight for Kelp was recognizing that, despite small movements, the
 </tr>
 </table>
 
+#### Final Strategy
 
 Our final strategy for Kelp was nearly identical to that for Rainforest Resin. At each timestep, we first immediately took any favorable trades available relative to the current wall mid, then placed slightly improved passive orders (overbidding and undercutting) around the fair price. If inventory became too large, we neutralized it by trading at zero edge relative to the current price estimate. No major changes were needed compared to the first product.
 
@@ -312,6 +315,7 @@ Our main insight was that one of the anonymous bot traders consistently exhibite
 </tr>
 </table>
 
+#### Final Strategy
 
 Our final strategy for Squid Ink focused purely on following this daily-extrema trading behavior, dynamically updating our positions based on detected trades and resetting when invalidations occurred. No active market making or mean reversion trading was used for this product. The result was a low-risk, high-reliability PnL contributor that did not rely on predicting price moves directly.
 
@@ -367,6 +371,8 @@ For instance, a moving average crossover only makes sense if you believe there i
 Similarly, using a z-score normalizes the spread by recent volatility, but unless volatility is known to vary meaningfully over time (which we did not observe here), this introduces unnecessary complexity and risk of overfitting.
 It's easy to fall into the trap of throwing fancy techniques at the problem after a few hours of backtesting — but if you can't explain why a strategy should work from first principles, then any "outperformance" in historical data is probably noise.
 From the beginning, we placed the highest value on building a deep structural understanding and keeping strategies simple, minimizing parameters whenever possible to maximize robustness.
+
+#### Final Strategy
 
 Based on that philosophy, our final strategy was built around a fixed threshold model.
 We entered long positions on the basket when the spread fell below a certain negative threshold, and short positions when it rose above a positive threshold.
@@ -594,6 +600,8 @@ Instead, we implemented a lightweight mean reversion model: tracking a fast roll
 </td>
 </tr>
 </table>
+
+#### Final Strategy
 
 In the end, we deployed a hybrid strategy combining both alpha sources.
 Our core focus remained on IV scalping, dynamically expanding across strikes and adjusting thresholds based on evolving conditions, while simultaneously maintaining a moderate mean reversion position — both in the underlying Volcanic Rock and in the deepest in-the-money call (the highest delta option available).
