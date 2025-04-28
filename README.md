@@ -824,7 +824,7 @@ With $$p$$ being you chosen price, and $$N$$ being the number of sellers. The op
 The game theory part, however, was more complicated. The setup was similar, but with reserve prices ranging from 250 to 320. However, if your bid was less than the average bid, your profit would be scaled by:<br><br>
 $S(p, \mu) = \left( \frac{320 - \mu}{320 - p} \right)^3$<br><br>
 where p is your bid, and µ is the average bid. This led to the following payoff function:<br><br>
-$$\Pi(p, \mu) = N \cdot \left( p - \frac{250}{70} \right) \cdot (320 - p) + \min \left( \left( \frac{320 - \mu}{320 - p} \right)^3, 1 \right)$$<br><br>
+$$\Pi(p, \mu) = N \cdot \left(\frac{p - 250}{70} \right) \cdot (320 - p) \cdot \min \left( \left( \frac{320 - \mu}{320 - p} \right)^3, 1 \right)$$<br><br>
 The optimum of this function occurs at the average, but the derivative shows that being below the average results in a greater loss than being above it. We incorporated this information into our estimate of what other teams would bid, leading us to bid 303. However, it turned out that most teams did not bid more than the optimum without considering game theory (284), so the average ended up being 287 — way lower than our bid. Luckily, the second part had a lower possible profit compared to the first round, so we only lost about 5.5% compared to the optimal solution. 
 
 
