@@ -814,8 +814,6 @@ $$\Pi(f) = \frac{M_f \times 10000}{(p_f \times 100) + I_f}$$
 
 With $$M_f$$ being the multiplier, $$p_f$$ the percentage of teams, and $$I_f$$ the number of inhabitants for any field $$f$$. 
 We tried to model other teams’ choices by looking at a similar challenge from Prosperity 2. This involved sorting fields by profitability for $$p_f = 0$$. It was assumed that regions with comparable profitability would display similar trends in over- or under-allocation. Applying this predicted the following percentages (by multiplier):
-With $$M_f$$ being the multiplier, $$p_f$$ the percentage of teams, and $$I_f$$ the number of inhabitants for any field $$f$$. 
-We tried to model other teams’ choices by looking at a similar challenge from Prosperity 2. This involved sorting fields by profitability for $$p_f = 0$$. It was assumed that regions with comparable profitability would display similar trends in over- or under-allocation. Applying this predicted the following percentages (by multiplier):
 | Multiplier | Predicted % | Actual % | Rank Predicted | Rank Actual |
 |------------|-------------|----------|----------------|-------------|
 | 37         | 4.95%       | 5.12%    | 1              | 3           |
@@ -913,7 +911,7 @@ Doing so is extremely prone to overfitting on simulation-specific randomness rat
 Competing at the top level in algorithmic trading competitions requires building a very strong and well-rounded skill set — much broader than just knowing how to code.
 Here’s what worked for us:
 
-Structured learning: Start with a solid technical foundation. Years ago, we took structured courses like the Udemy course on [Algorithmic Trading](https://www.udemy.com/course/algorithmic-trading-with-python-and-machine-learning/) (very often on sale for like 10 bucks or so) to understand the basics of trading, order books, strategy design, and risk management.
+Structured learning: Start with a solid technical foundation. Years ago, we took structured courses like the Udemy course on [Algorithmic Trading](https://www.udemy.com/course/algorithmic-trading-with-python-and-machine-learning/) (very often on sale for like 10 bucks or so) to understand the basics of trading, order books, strategy design etc.
 
 YouTube and online resources: We supplemented formal education with countless hours of watching educational YouTube channels (e.g., QuantPy, Khan Academy for Statistics, QuantConnect tutorials) to stay exposed to new ideas and real-world examples.
 
