@@ -1,0 +1,3 @@
+numpy==2.4.4
+orjson==3.11.8
+prosperity3bt==0.12.0
