@@ -349,8 +349,10 @@ class StaticTrader(ProductTrader):
             ###########################################################
             ####### 2. MAKING — passive limit orders inside the spread
             ###########################################################
-            bid_price = int(self.bid_wall + 1) # base case: just inside the outer bid wall
-            ask_price = int(self.ask_wall - 1) # base case: just inside the outer ask wall
+            # Base case: match current best bid/ask (top of book), capped at wall_mid.
+            # Fallback is top-of-book rather than the outer wall so we stay competitive.
+            bid_price = min(int(self.best_bid), int(self.wall_mid) - 1)
+            ask_price = max(int(self.best_ask), int(self.wall_mid) + 1)
 
             # OVERBIDDING: find the best existing bid below mid and beat it by 1
             # (skip thin 1-lot orders to avoid pennying noise)
@@ -425,7 +427,7 @@ class DynamicTrader(ProductTrader):
         # Calculate fair value using the linear trend (slope * time + intercept)
         fair_value = SLOPE * self.state.timestamp + intercept
 
-        logger.print(f"t={self.state.timestamp}, mid={current_mid:.1f}, fair={fair_value:.1f}, intercept={intercept:.1f}, pos={self.initial_position}")
+        # logger.print(f"t={self.state.timestamp}, mid={current_mid:.1f}, fair={fair_value:.1f}, intercept={intercept:.1f}, pos={self.initial_position}")
         
         ##########################################################
         ####### 1. TAKING — aggressive orders that cross mid
@@ -451,22 +453,24 @@ class DynamicTrader(ProductTrader):
         ###########################################################
         ####### 2. MAKING — passive limit orders inside the spread
         ###########################################################
-        bid_price = int(self.bid_wall + 1) # base case: just inside the outer bid wall
-        ask_price = int(self.ask_wall - 1) # base case: just inside the outer ask wall
+        # Base case: match current best bid/ask (top of book), capped at fair_value.
+        # Fallback is top-of-book rather than the outer wall so we stay competitive.
+        bid_price = min(int(self.best_bid), int(fair_value) - 1)
+        ask_price = max(int(self.best_ask), int(fair_value) + 1)
 
-        # OVERBIDDING: find the best existing bid below mid and beat it by 1
+        # OVERBIDDING: find the best existing bid below fair value and beat it by 1
         # (skip thin 1-lot orders to avoid pennying noise)
         for bp, bv in self.mkt_buy_orders.items():
             overbidding_price = bp + 1
             if bv > 1 and overbidding_price < fair_value:
                 bid_price = max(bid_price, overbidding_price)
                 break
-            # If the best bid is 1-lot order, then just match it instead of overbidding
+            # If the best bid is a 1-lot order, just match it
             elif bp < fair_value:
                 bid_price = max(bid_price, bp)
                 break
 
-        # UNDERBIDDING: find the best existing ask above mid and undercut it by 1
+        # UNDERCUTTING: find the best existing ask above fair value and undercut it by 1
         for sp, sv in self.mkt_sell_orders.items():
             underbidding_price = sp - 1
             if sv > 1 and underbidding_price > fair_value:
@@ -475,14 +479,22 @@ class DynamicTrader(ProductTrader):
             elif sp > fair_value:
                 ask_price = min(ask_price, sp)
                 break
-        
+
         # Inventory skew - shift quotes based on position
-        skew = int((self.initial_position / self.position_limit) * 2)
+        skew = int((self.initial_position / self.position_limit) * 4)
         bid_price -= skew
         ask_price -= skew
-        # POST ORDERS — use all remaining capacity
-        self.bid(bid_price, self.max_allowed_buy_volume)
-        self.ask(ask_price, self.max_allowed_sell_volume)
+
+        # Guard against crossed quotes (can happen in a 1-tick-wide book)
+        if bid_price >= ask_price:
+            bid_price = ask_price - 1
+
+        # POST ORDERS — skip the accumulating side when near position limits
+        near_limit = 0.9 * self.position_limit
+        if self.initial_position < near_limit:
+            self.bid(bid_price, self.max_allowed_buy_volume)
+        if self.initial_position > -near_limit:
+            self.ask(ask_price, self.max_allowed_sell_volume)
 
 
         return {self.name: self.orders}
