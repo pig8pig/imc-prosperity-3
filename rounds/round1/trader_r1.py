@@ -146,8 +146,8 @@ DYNAMIC_SYMBOL = 'INTARIAN_PEPPER_ROOT'              # trending product → foll
 
 # Maximum number of units we are allowed to hold (long or short) per product
 POS_LIMITS = {
-    STATIC_SYMBOL: 75,
-    DYNAMIC_SYMBOL: 75,
+    STATIC_SYMBOL: 80,
+    DYNAMIC_SYMBOL: 80,
 }
 
 # SLOPE: estimated from historical data for the trending product (DynamicTrader uses this to estimate fair value)
@@ -392,111 +392,117 @@ class DynamicTrader(ProductTrader):
     def __init__(self, state, prints, new_trader_data):
         super().__init__(DYNAMIC_SYMBOL, state, prints, new_trader_data)
 
+    # def get_orders(self):
+    #     if self.best_bid is None or self.best_ask is None:
+    #         return {self.name: self.orders}
+        
+    #     if self.bid_wall is None or self.ask_wall is None:
+    #         return {self.name: self.orders}
+        
+    #     # In Dynamic Trader, use trader data to persist the intercept
+    #     intercept = self.last_traderData.get(DYNAMIC_SYMBOL, {}).get('intercept', None)
+
+    #     current_mid = (self.best_bid + self.best_ask) / 2
+    #     # correct for data where mid price is zero
+    #     if current_mid <= 0:
+    #         return {self.name: self.orders}
+        
+    #     # Sanity check — if walls are corrupted by rogue orders, skip this tick
+    #     if intercept is not None:
+    #         expected =  SLOPE * self.state.timestamp + intercept
+    #         if abs(expected - current_mid) > 500:
+    #             return {self.name: self.orders}
+        
+    #     current_intercept = current_mid - SLOPE * self.state.timestamp
+
+    #     if intercept is None:
+    #         # First tick, estimate intercept from current mid price
+    #         intercept = current_intercept
+    #     else:
+    #         # check for abrupt changes in the intercept, which would indicate a change of day
+    #         if abs(current_intercept - intercept) > 950:
+    #             intercept = current_intercept
+        
+    #     self.new_trader_data[DYNAMIC_SYMBOL] = {'intercept': intercept}
+    #     # Calculate fair value using the linear trend (slope * time + intercept)
+    #     fair_value = SLOPE * self.state.timestamp + intercept
+
+    #     # logger.print(f"t={self.state.timestamp}, mid={current_mid:.1f}, fair={fair_value:.1f}, intercept={intercept:.1f}, pos={self.initial_position}")
+        
+    #     ##########################################################
+    #     ####### 1. TAKING — aggressive orders that cross mid
+    #     ##########################################################
+    #     # Buy any asks that are clearly below fair value
+    #     for sp, sv in self.mkt_sell_orders.items():
+    #         if sp <= fair_value - 1:
+    #             self.bid(sp, sv, logging=False)
+    #         # If we're short, also buy asks right at mid to reduce risk
+    #         elif sp <= fair_value and self.initial_position < 0:
+    #             volume = min(sv,  abs(self.initial_position))
+    #             self.bid(sp, volume, logging=False)
+
+    #     # Sell any bids that are clearly above fair value
+    #     for bp, bv in self.mkt_buy_orders.items():
+    #         if bp >= fair_value + 1:
+    #             self.ask(bp, bv, logging=False)
+    #         # If we're long, also sell bids right at mid to reduce risk
+    #         elif bp >= fair_value and self.initial_position > 0:
+    #             volume = min(bv,  self.initial_position)
+    #             self.ask(bp, volume, logging=False)
+
+    #     ###########################################################
+    #     ####### 2. MAKING — passive limit orders inside the spread
+    #     ###########################################################
+    #     # Base case: match current best bid/ask (top of book), capped at fair_value.
+    #     # Fallback is top-of-book rather than the outer wall so we stay competitive.
+    #     bid_price = min(int(self.best_bid), int(fair_value) - 1)
+    #     ask_price = max(int(self.best_ask), int(fair_value) + 1)
+
+    #     # OVERBIDDING: find the best existing bid below fair value and beat it by 1
+    #     # (skip thin 1-lot orders to avoid pennying noise)
+    #     for bp, bv in self.mkt_buy_orders.items():
+    #         overbidding_price = bp + 1
+    #         if bv > 1 and overbidding_price < fair_value:
+    #             bid_price = max(bid_price, overbidding_price)
+    #             break
+    #         # If the best bid is a 1-lot order, just match it
+    #         elif bp < fair_value:
+    #             bid_price = max(bid_price, bp)
+    #             break
+
+    #     # UNDERCUTTING: find the best existing ask above fair value and undercut it by 1
+    #     for sp, sv in self.mkt_sell_orders.items():
+    #         underbidding_price = sp - 1
+    #         if sv > 1 and underbidding_price > fair_value:
+    #             ask_price = min(ask_price, underbidding_price)
+    #             break
+    #         elif sp > fair_value:
+    #             ask_price = min(ask_price, sp)
+    #             break
+
+    #     # Inventory skew - shift quotes based on position
+    #     skew = int((self.initial_position / self.position_limit) * 4)
+    #     bid_price -= skew
+    #     ask_price -= skew
+
+    #     # Guard against crossed quotes (can happen in a 1-tick-wide book)
+    #     if bid_price >= ask_price:
+    #         bid_price = ask_price - 1
+
+    #     # POST ORDERS — skip the accumulating side when near position limits
+    #     near_limit = 0.9 * self.position_limit
+    #     if self.initial_position < near_limit:
+    #         self.bid(bid_price, self.max_allowed_buy_volume)
+    #     if self.initial_position > -near_limit:
+    #         self.ask(ask_price, self.max_allowed_sell_volume)
+
+
+    #     return {self.name: self.orders}
     def get_orders(self):
-        if self.best_bid is None or self.best_ask is None:
-            return {self.name: self.orders}
-        
-        if self.bid_wall is None or self.ask_wall is None:
-            return {self.name: self.orders}
-        
-        # In Dynamic Trader, use trader data to persist the intercept
-        intercept = self.last_traderData.get(DYNAMIC_SYMBOL, {}).get('intercept', None)
-
-        current_mid = (self.best_bid + self.best_ask) / 2
-        # correct for data where mid price is zero
-        if current_mid <= 0:
-            return {self.name: self.orders}
-        
-        # Sanity check — if walls are corrupted by rogue orders, skip this tick
-        if intercept is not None:
-            expected =  SLOPE * self.state.timestamp + intercept
-            if abs(expected - current_mid) > 500:
-                return {self.name: self.orders}
-        
-        current_intercept = current_mid - SLOPE * self.state.timestamp
-
-        if intercept is None:
-            # First tick, estimate intercept from current mid price
-            intercept = current_intercept
-        else:
-            # check for abrupt changes in the intercept, which would indicate a change of day
-            if abs(current_intercept - intercept) > 950:
-                intercept = current_intercept
-        
-        self.new_trader_data[DYNAMIC_SYMBOL] = {'intercept': intercept}
-        # Calculate fair value using the linear trend (slope * time + intercept)
-        fair_value = SLOPE * self.state.timestamp + intercept
-
-        # logger.print(f"t={self.state.timestamp}, mid={current_mid:.1f}, fair={fair_value:.1f}, intercept={intercept:.1f}, pos={self.initial_position}")
-        
-        ##########################################################
-        ####### 1. TAKING — aggressive orders that cross mid
-        ##########################################################
-        # Buy any asks that are clearly below fair value
+        # INTARIAN_PEPPER_ROOT always trends up — hold max long
         for sp, sv in self.mkt_sell_orders.items():
-            if sp <= fair_value - 1:
-                self.bid(sp, sv, logging=False)
-            # If we're short, also buy asks right at mid to reduce risk
-            elif sp <= fair_value and self.initial_position < 0:
-                volume = min(sv,  abs(self.initial_position))
-                self.bid(sp, volume, logging=False)
-
-        # Sell any bids that are clearly above fair value
-        for bp, bv in self.mkt_buy_orders.items():
-            if bp >= fair_value + 1:
-                self.ask(bp, bv, logging=False)
-            # If we're long, also sell bids right at mid to reduce risk
-            elif bp >= fair_value and self.initial_position > 0:
-                volume = min(bv,  self.initial_position)
-                self.ask(bp, volume, logging=False)
-
-        ###########################################################
-        ####### 2. MAKING — passive limit orders inside the spread
-        ###########################################################
-        # Base case: match current best bid/ask (top of book), capped at fair_value.
-        # Fallback is top-of-book rather than the outer wall so we stay competitive.
-        bid_price = min(int(self.best_bid), int(fair_value) - 1)
-        ask_price = max(int(self.best_ask), int(fair_value) + 1)
-
-        # OVERBIDDING: find the best existing bid below fair value and beat it by 1
-        # (skip thin 1-lot orders to avoid pennying noise)
-        for bp, bv in self.mkt_buy_orders.items():
-            overbidding_price = bp + 1
-            if bv > 1 and overbidding_price < fair_value:
-                bid_price = max(bid_price, overbidding_price)
-                break
-            # If the best bid is a 1-lot order, just match it
-            elif bp < fair_value:
-                bid_price = max(bid_price, bp)
-                break
-
-        # UNDERCUTTING: find the best existing ask above fair value and undercut it by 1
-        for sp, sv in self.mkt_sell_orders.items():
-            underbidding_price = sp - 1
-            if sv > 1 and underbidding_price > fair_value:
-                ask_price = min(ask_price, underbidding_price)
-                break
-            elif sp > fair_value:
-                ask_price = min(ask_price, sp)
-                break
-
-        # Inventory skew - shift quotes based on position
-        skew = int((self.initial_position / self.position_limit) * 4)
-        bid_price -= skew
-        ask_price -= skew
-
-        # Guard against crossed quotes (can happen in a 1-tick-wide book)
-        if bid_price >= ask_price:
-            bid_price = ask_price - 1
-
-        # POST ORDERS — skip the accumulating side when near position limits
-        near_limit = 0.9 * self.position_limit
-        if self.initial_position < near_limit:
-            self.bid(bid_price, self.max_allowed_buy_volume)
-        if self.initial_position > -near_limit:
-            self.ask(ask_price, self.max_allowed_sell_volume)
-
-
+            if self.max_allowed_buy_volume > 0:
+                self.bid(sp, sv)
         return {self.name: self.orders}
 
 # ─────────────────────────────────────────────────────────────────────────────
