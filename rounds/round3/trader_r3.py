@@ -141,15 +141,25 @@ logger = Logger()
 # ─────────────────────────────────────────────────────────────────────────────
 # Symbol constants — one place to rename products if the exchange changes them
 # ─────────────────────────────────────────────────────────────────────────────
-STATIC_SYMBOL = 'HYDROGEL_PACK', 'VELVETFRUIT_EXTRACT'   # stable fair-value product → pure market-making (more or less random walk)
+HYDROGEL_SYMBOL  = 'HYDROGEL_PACK'
+VELVET_SYMBOL    = 'VELVETFRUIT_EXTRACT'
 
+# Voucher chain — Round 3 European calls on VELVETFRUIT_EXTRACT.
+# Skipped strikes (4000, 4500, 6000, 6500) have unreliable IV / near-zero vega
+# and contribute nothing to the static-arb scan even at the chain edges.
+ACTIVE_STRIKES = [5000, 5100, 5200, 5300, 5400, 5500]
+VOUCHER_SYMBOLS = [f"VEV_{k}" for k in ACTIVE_STRIKES]
+VOUCHER_LIMIT = 300
+ARB_PER_VOUCHER_SLICE = 50  # capacity reserved for StaticArbScanner
 
-# Maximum number of units we are allowed to hold (long or short) per product
+# Position limits
 POS_LIMITS = {
-    STATIC_SYMBOL: 200,
+    HYDROGEL_SYMBOL: 200,
+    VELVET_SYMBOL:   200,
+    **{sym: VOUCHER_LIMIT for sym in VOUCHER_SYMBOLS},
 }
-
-# Direction constants used throughout
+ 
+# Direction constants
 LONG, NEUTRAL, SHORT = 1, 0, -1
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -305,7 +315,7 @@ class ProductTrader:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# StaticTrader — ASH_COATED_OSMIUM
+# StaticTrader — HYDROGEL_PACK, VELVETFRUIT_EXTRACT
 # Strategy: pure market-making around a stable fair value.
 # The product's fair value is effectively the midpoint of the outermost
 # bid/ask prices (wall_mid). We:
@@ -314,86 +324,268 @@ class ProductTrader:
 #      existing orders to get queue priority.
 # ─────────────────────────────────────────────────────────────────────────────
 class StaticTrader(ProductTrader):
-    def __init__(self, state, prints, new_trader_data):
-        super().__init__(STATIC_SYMBOL, state, prints, new_trader_data)
-
+ 
+    def __init__(self, symbol, state, prints, new_trader_data):
+        super().__init__(symbol, state, prints, new_trader_data)
+ 
     def get_orders(self):
-
-        if self.wall_mid is not None:
-
-            ##########################################################
-            ####### 1. TAKING — aggressive orders that cross mid
-            ##########################################################
-            # Buy any asks that are clearly below fair value
-            for sp, sv in self.mkt_sell_orders.items():
-                if sp <= self.wall_mid - 1:
-                    self.bid(sp, sv, logging=False)
-                # If we're short, also buy asks right at mid to reduce risk
-                elif sp <= self.wall_mid and self.initial_position < 0:
-                        volume = min(sv,  abs(self.initial_position))
-                        self.bid(sp, volume, logging=False)
-
-            # Sell any bids that are clearly above fair value
-            for bp, bv in self.mkt_buy_orders.items():
-                if bp >= self.wall_mid + 1:
-                    self.ask(bp, bv, logging=False)
-                # If we're long, also sell bids right at mid to reduce risk
-                elif bp >= self.wall_mid and self.initial_position > 0:
-                        volume = min(bv,  self.initial_position)
-                        self.ask(bp, volume, logging=False)
-
-            ###########################################################
-            ####### 2. MAKING — passive limit orders inside the spread
-            ###########################################################
-            # Base case: match current best bid/ask (top of book), capped at wall_mid.
-            # Fallback is top-of-book rather than the outer wall so we stay competitive.
-            bid_price = min(int(self.best_bid), int(self.wall_mid) - 1)
-            ask_price = max(int(self.best_ask), int(self.wall_mid) + 1)
-
-            # OVERBIDDING: find the best existing bid below mid and beat it by 1
-            # (skip thin 1-lot orders to avoid pennying noise)
-            for bp, bv in self.mkt_buy_orders.items():
-                overbidding_price = bp + 1
-                if bv > 1 and overbidding_price < self.wall_mid:
-                    bid_price = max(bid_price, overbidding_price)
-                    break
-                elif bp < self.wall_mid:
-                    bid_price = max(bid_price, bp)
-                    break
-
-            # UNDERBIDDING: find the best existing ask above mid and undercut it by 1
-            for sp, sv in self.mkt_sell_orders.items():
-                underbidding_price = sp - 1
-                if sv > 1 and underbidding_price > self.wall_mid:
-                    ask_price = min(ask_price, underbidding_price)
-                    break
-                elif sp > self.wall_mid:
-                    ask_price = min(ask_price, sp)
-                    break
-
-            # POST ORDERS — use all remaining capacity
-            self.bid(bid_price, self.max_allowed_buy_volume)
-            self.ask(ask_price, self.max_allowed_sell_volume)
-
-
-        return {self.name: self.orders}
-    
-
-    # ─────────────────────────────────────────────────────────────────────────────
-# DynamicTrader - INTARIAN_PEPPER_ROOT
-# Strategy: predict price using a linear trend and follow it:
-# Normal: post passive bid/ask just inside the walls (like StaticTrader).
-# ─────────────────────────────────────────────────────────────────────────────
-class DynamicTrader(ProductTrader):
-    def __init__(self, state, prints, new_trader_data):
-        super().__init__(DYNAMIC_SYMBOL, state, prints, new_trader_data)
-
-    def get_orders(self):
-        # INTARIAN_PEPPER_ROOT always trends up — hold max long
+ 
+        if self.wall_mid is None:
+            return {self.name: self.orders}
+ 
+        ##########################################################
+        ####### 1. TAKING — aggressive orders that cross mid
+        ##########################################################
+ 
+        # Buy any asks clearly below fair value
         for sp, sv in self.mkt_sell_orders.items():
-            if self.max_allowed_buy_volume > 0:
-                self.bid(sp, sv)
+            if sp <= self.wall_mid - 1:
+                self.bid(sp, sv, logging=False)
+            # If short, also buy asks right at mid to reduce inventory risk
+            elif sp <= self.wall_mid and self.initial_position < 0:
+                volume = min(sv, abs(self.initial_position))
+                self.bid(sp, volume, logging=False)
+ 
+        # Sell any bids clearly above fair value
+        for bp, bv in self.mkt_buy_orders.items():
+            if bp >= self.wall_mid + 1:
+                self.ask(bp, bv, logging=False)
+            # If long, also sell bids right at mid to reduce inventory risk
+            elif bp >= self.wall_mid and self.initial_position > 0:
+                volume = min(bv, self.initial_position)
+                self.ask(bp, volume, logging=False)
+ 
+        ###########################################################
+        ####### 2. MAKING — passive limit orders inside the spread
+        ###########################################################
+ 
+        # Base case: top of book, capped at wall_mid
+        bid_price = min(int(self.best_bid), int(self.wall_mid) - 1)
+        ask_price = max(int(self.best_ask), int(self.wall_mid) + 1)
+ 
+        # OVERBIDDING: beat the best existing bid below mid by 1
+        # (skip 1-lot orders to avoid pennying noise)
+        for bp, bv in self.mkt_buy_orders.items():
+            overbidding_price = bp + 1
+            if bv > 1 and overbidding_price < self.wall_mid:
+                bid_price = max(bid_price, overbidding_price)
+                break
+            elif bp < self.wall_mid:
+                bid_price = max(bid_price, bp)
+                break
+ 
+        # UNDERCUTTING: undercut the best existing ask above mid by 1
+        for sp, sv in self.mkt_sell_orders.items():
+            underbidding_price = sp - 1
+            if sv > 1 and underbidding_price > self.wall_mid:
+                ask_price = min(ask_price, underbidding_price)
+                break
+            elif sp > self.wall_mid:
+                ask_price = min(ask_price, sp)
+                break
+ 
+        # POST ORDERS — use all remaining capacity
+        self.bid(bid_price, self.max_allowed_buy_volume)
+        self.ask(ask_price, self.max_allowed_sell_volume)
+ 
         return {self.name: self.orders}
+ 
+# ─────────────────────────────────────────────────────────────────────────────
+# StaticArbScanner — model-free arbitrage on the voucher chain
+# Scans 15 vertical pairs + 4 butterflies for no-arb violations using
+# executable bid/ask quotes (NOT mids). Sizes each leg by min(book volume,
+# position-limit headroom) and caps any single arb at ARB_PER_VOUCHER_SLICE
+# units. Designed to run BEFORE the volatility-based OptionTrader so it gets
+# first dibs on rare opportunities. Wraps everything in try/except so a bad
+# book never crashes the trader.
+# ─────────────────────────────────────────────────────────────────────────────
+class StaticArbScanner:
+
+    MIN_PROFIT_PER_UNIT = 0.5  # below this, treat as noise
+    MAX_SIZE_PER_ARB = 50       # avoid eating multiple price levels at once
+
+    def __init__(self, state, prints, position_overrides=None):
+        self.state = state
+        self.prints = prints
+        # External callers (e.g. an OptionTrader running first) can pre-claim
+        # voucher capacity by passing overrides; default to the live position.
+        self.position_overrides = position_overrides or {}
+        self.orders: dict[str, list[Order]] = {sym: [] for sym in VOUCHER_SYMBOLS}
+        self.violations_logged = []
+
+    def _log(self, kind, payload):
+        group = self.prints.get("ARB", [])
+        group.append({kind: payload})
+        self.prints["ARB"] = group
+
+    def _book(self, symbol):
+        """Return (sorted_bids_desc, sorted_asks_asc) with positive volumes."""
+        depth = self.state.order_depths.get(symbol)
+        if depth is None:
+            return [], []
+        bids = sorted(((p, abs(v)) for p, v in depth.buy_orders.items()),
+                      key=lambda x: -x[0])
+        asks = sorted(((p, abs(v)) for p, v in depth.sell_orders.items()),
+                      key=lambda x: x[0])
+        return bids, asks
+
+    def _best(self, bids, asks):
+        best_bid = (bids[0][0], bids[0][1]) if bids else (None, 0)
+        best_ask = (asks[0][0], asks[0][1]) if asks else (None, 0)
+        return best_bid, best_ask
+
+    def _initial_position(self, symbol):
+        if symbol in self.position_overrides:
+            return self.position_overrides[symbol]
+        return self.state.position.get(symbol, 0)
+
+    def _buy_headroom(self, symbol, claimed_buy):
+        """Remaining BUY capacity given the arb-only slice and prior claims."""
+        pos = self._initial_position(symbol)
+        # Buys reserved to the arb scanner: ARB_PER_VOUCHER_SLICE on top of pos
+        cap = min(VOUCHER_LIMIT, pos + ARB_PER_VOUCHER_SLICE)
+        return max(0, cap - pos - claimed_buy)
+
+    def _sell_headroom(self, symbol, claimed_sell):
+        pos = self._initial_position(symbol)
+        cap = max(-VOUCHER_LIMIT, pos - ARB_PER_VOUCHER_SLICE)
+        return max(0, pos - cap - claimed_sell)
+
+    def get_orders(self):
+        try:
+            return self._scan()
+        except Exception as e:
+            self._log("ERROR", str(e))
+            return {}
+
+    def _scan(self):
+        # Snapshot best bid/ask + top-of-book volume per voucher. If a side
+        # is missing we just record None and skip arbs that need it.
+        quotes = {}
+        for sym in VOUCHER_SYMBOLS:
+            bids, asks = self._book(sym)
+            (bp, bv), (ap, av) = self._best(bids, asks)
+            quotes[sym] = {"bid": bp, "bid_v": bv, "ask": ap, "ask_v": av}
+
+        # claimed_buy/sell tracks how many units of each voucher we've already
+        # promised this tick — used to update headroom across multiple arbs.
+        claimed_buy = {sym: 0 for sym in VOUCHER_SYMBOLS}
+        claimed_sell = {sym: 0 for sym in VOUCHER_SYMBOLS}
+        # taken_ask_v / taken_bid_v: track book volume already spoken-for so a
+        # later arb doesn't double-count the same lifted level.
+        taken_ask_v = {sym: 0 for sym in VOUCHER_SYMBOLS}
+        taken_bid_v = {sym: 0 for sym in VOUCHER_SYMBOLS}
+
+        candidates = []  # list of (profit_total, executor_callable, descriptor)
+
+        # ─── 1. Vertical pairs (15) ─────────────────────────────────────────
+        n = len(ACTIVE_STRIKES)
+        for i in range(n):
+            for j in range(i + 1, n):
+                k1, k2 = ACTIVE_STRIKES[i], ACTIVE_STRIKES[j]
+                s1, s2 = VOUCHER_SYMBOLS[i], VOUCHER_SYMBOLS[j]
+                q1, q2 = quotes[s1], quotes[s2]
+
+                # 1A. Monotonicity: C(K1) >= C(K2). Violation -> buy K1, sell K2.
+                if q1["ask"] is not None and q2["bid"] is not None:
+                    edge = q2["bid"] - q1["ask"]
+                    if edge >= self.MIN_PROFIT_PER_UNIT:
+                        candidates.append({
+                            "type": "MONO",
+                            "edge": edge,
+                            "buy": [(s1, q1["ask"], q1["ask_v"])],
+                            "sell": [(s2, q2["bid"], q2["bid_v"])],
+                            "detail": f"buy {s1}@{q1['ask']} sell {s2}@{q2['bid']} edge={edge:.2f}",
+                        })
+
+                # 1B. Spread upper bound: C(K1) - C(K2) <= K2 - K1.
+                # Violation -> sell K1, buy K2.
+                if q1["bid"] is not None and q2["ask"] is not None:
+                    edge = q1["bid"] - q2["ask"] - (k2 - k1)
+                    if edge >= self.MIN_PROFIT_PER_UNIT:
+                        candidates.append({
+                            "type": "VSPREAD",
+                            "edge": edge,
+                            "buy": [(s2, q2["ask"], q2["ask_v"])],
+                            "sell": [(s1, q1["bid"], q1["bid_v"])],
+                            "detail": f"sell {s1}@{q1['bid']} buy {s2}@{q2['ask']} "
+                                      f"width={k2-k1} edge={edge:.2f}",
+                        })
+
+        # ─── 2. Butterflies (4): K2 = (K1+K3)/2 ─────────────────────────────
+        for i in range(n - 2):
+            s1, s2, s3 = VOUCHER_SYMBOLS[i], VOUCHER_SYMBOLS[i + 1], VOUCHER_SYMBOLS[i + 2]
+            q1, q2, q3 = quotes[s1], quotes[s2], quotes[s3]
+            if (q1["ask"] is None or q3["ask"] is None or q2["bid"] is None):
+                continue
+            butterfly = q1["ask"] - 2 * q2["bid"] + q3["ask"]
+            edge = -butterfly
+            if edge >= self.MIN_PROFIT_PER_UNIT:
+                candidates.append({
+                    "type": "BFLY",
+                    "edge": edge,
+                    "buy": [(s1, q1["ask"], q1["ask_v"]),
+                            (s3, q3["ask"], q3["ask_v"])],
+                    "sell": [(s2, q2["bid"], q2["bid_v"] // 2)],
+                    "sell_mult": {s2: 2},  # 2× units of K2 per butterfly
+                    "detail": f"buy {s1}@{q1['ask']} sell 2x {s2}@{q2['bid']} "
+                              f"buy {s3}@{q3['ask']} edge={edge:.4f}",
+                })
+
+        if not candidates:
+            return self.orders
+
+        # ─── 3. Rank by per-unit edge (we'll size each individually) ────────
+        candidates.sort(key=lambda c: -c["edge"])
+
+        for cand in candidates:
+            buy_legs = cand["buy"]
+            sell_legs = cand["sell"]
+            sell_mult = cand.get("sell_mult", {})
+
+            # Compute max executable size = min over legs of headroom & remaining vol
+            sizes = [self.MAX_SIZE_PER_ARB]
+            for sym, _, vol in buy_legs:
+                avail_vol = vol - taken_ask_v[sym]
+                head = self._buy_headroom(sym, claimed_buy[sym])
+                sizes.append(max(0, min(avail_vol, head)))
+            for sym, _, vol in sell_legs:
+                mult = sell_mult.get(sym, 1)
+                avail_vol = (vol - taken_bid_v[sym]) // max(1, mult)
+                head = self._sell_headroom(sym, claimed_sell[sym]) // max(1, mult)
+                sizes.append(max(0, min(avail_vol, head)))
+            size = min(sizes)
+            if size < 1:
+                continue
+            unit_profit = cand["edge"]
+            total_profit = size * unit_profit
+            if unit_profit < self.MIN_PROFIT_PER_UNIT:
+                continue
+
+            # Place legs and update accounting
+            for sym, price, _ in buy_legs:
+                self.orders.setdefault(sym, []).append(Order(sym, int(price), int(size)))
+                claimed_buy[sym] += size
+                taken_ask_v[sym] += size
+            for sym, price, _ in sell_legs:
+                mult = sell_mult.get(sym, 1)
+                qty = int(size) * mult
+                self.orders.setdefault(sym, []).append(Order(sym, int(price), -qty))
+                claimed_sell[sym] += qty
+                taken_bid_v[sym] += qty
+
+            self.violations_logged.append({
+                "type": cand["type"],
+                "size": int(size),
+                "unit_edge": round(unit_profit, 4),
+                "total": round(total_profit, 2),
+                "detail": cand["detail"],
+            })
+
+        if self.violations_logged:
+            self._log("EXEC", self.violations_logged)
+        return self.orders
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Trader — main entry point called by the Prosperity platform each tick
@@ -402,43 +594,53 @@ class DynamicTrader(ProductTrader):
 class Trader:
 
     def run(self, state: TradingState):
-        result:dict[str,list[Order]] = {}
+        result: dict[str, list[Order]] = {}
         new_trader_data = {}
+
         # Shared logging dict — all sub-traders write into this, keyed by group
         prints = {
             "GENERAL": {
                 "TIMESTAMP": state.timestamp,
-                "POSITIONS": state.position
+                "POSITIONS": state.position,
             },
         }
 
-        # Map each "representative" symbol to its trader class.
-        # ETF and Option traders handle multiple symbols internally.
-        product_traders = {
-            STATIC_SYMBOL: StaticTrader,
-            DYNAMIC_SYMBOL: DynamicTrader,
-        }
+        # Both delta-1 products use StaticTrader with identical logic
+        static_symbols = [HYDROGEL_SYMBOL, VELVET_SYMBOL]
 
         result, conversions = {}, 0
-        for symbol, product_trader in product_traders.items():
+
+        for symbol in static_symbols:
             # Only run a trader if market data exists for its symbol this tick
             if symbol in state.order_depths:
-
                 try:
-                    trader = product_trader(state, prints, new_trader_data)
+                    trader = StaticTrader(symbol, state, prints, new_trader_data)
                     result.update(trader.get_orders())
-                # except: pass
                 except Exception as e:
                     logger.print(f"ERROR in {symbol}: {e}")
 
+        # Static arbitrage scan on the voucher chain — runs BEFORE any future
+        # vol-based OptionTrader so it claims rare model-free edges first.
+        try:
+            arb = StaticArbScanner(state, prints)
+            arb_orders = arb.get_orders()
+            for sym, ords in arb_orders.items():
+                if not ords:
+                    continue
+                result.setdefault(sym, []).extend(ords)
+        except Exception as e:
+            logger.print(f"ERROR in StaticArbScanner: {e}")
 
         # Serialise persistent state for next tick
-        try: final_trader_data = json.dumps(new_trader_data)
-        except: final_trader_data = ''
+        try:
+            final_trader_data = json.dumps(new_trader_data)
+        except:
+            final_trader_data = ''
 
-        try: logger.print(json.dumps(prints))
-        except: pass
+        try:
+            logger.print(json.dumps(prints))
+        except:
+            pass
 
         logger.flush(state, result, conversions, final_trader_data)
         return result, conversions, final_trader_data
-        
