@@ -704,31 +704,41 @@ class StaticArbScanner:
 
 
 # ═════════════════════════════════════════════════════════════════════════════
-# OptionTrader — Phase 5 smile-deviation alpha (inlined from
-# phase5_smile_trader.py). Trades the 6 active VE vouchers off deviations
-# from the live IV smile. Self-contained: state lives in new_trader_data.
+# OptionTrader — IV scalping on the VE voucher chain
+# Replicates Timo Diehm's "Frankfurt Hedgehogs" Round-3 IV-scalping strategy
+# (Prosperity 3, 2025, 2nd globally). Each tick, for each voucher:
+#   1. Compute BS theo price using the fitted smile IV(m) where
+#      m = log(K/S)/sqrt(TTE).
+#   2. theo_diff = market_mid − theo. Maintain an EMA of theo_diff
+#      (THEO_NORM_WINDOW=20) and an EMA of |theo_diff − mean| (regime
+#      detector, IV_SCALPING_WINDOW=100).
+#   3. Trade only when the regime detector ≥ IV_SCALPING_THR (spread is
+#      moving enough). Otherwise flatten.
+#   4. Sell when the bid-relative gap exceeds (THR_OPEN + low_vega_adj),
+#      buy when the ask-relative gap goes below the negative of that.
+#      Close back at THR_CLOSE.
+# Static smile coefficients fit from Round-3 days 0/1/2 mid prices:
+#   iv = 0.07359611·m² + 0.00304305·m + 0.32461056
 # ═════════════════════════════════════════════════════════════════════════════
 
-# ─── Tunables (top-level so the inliner can find them) ──────────────────────
-N_OPEN = 2.0
-N_CLOSE = 1.0
-PER_TRADE_CAP = 30
-WARMUP_TICKS = 200
-DELTA_CAP = 150.0
-EMA_MEAN_WINDOW = 500
-EMA_VAR_WINDOW = 1000
-USE_LOO = True  # leave-one-out smile fit (avoids self-regression bias)
+# Smile coefficients (poly1d-order: highest power first). Re-fit from
+# /data/round3/prices_round_3_day_*.csv. Replaces Timo's volcanic-rock smile.
+SMILE_COEFFS = (0.07359611, 0.00304305, 0.32461056)
 
-# Spec wrote `voucher.ask(best_bid, size)` (cross the spread). On these
-# vouchers half-spread (3, 2, 1.5, 1, 0.5, 0.5) >> per-trade signal edge
-# (~0.1/unit), so taking always loses. We post passive instead: floor(mid)
-# for sells, ceil(mid) for buys. Skip if no room (spread ≤ 1).
-PASSIVE_EXEC = True
+# IV-scalping thresholds (in price units; not z-scores).
+THR_OPEN = 0.2
+THR_CLOSE = 0.0
+LOW_VEGA_THR_ADJ = 0.5  # widen threshold when vega <= 1 (low-vega = noisy theo)
+
+# EMA windows (in ticks).
+THEO_NORM_WINDOW = 20         # short EMA: per-option mean of theo_diff
+IV_SCALPING_WINDOW = 100      # long EMA: regime detector
+IV_SCALPING_THR = 0.3         # only scalp when regime EMA ≥ this value
 
 # ─── TTE schedule ───────────────────────────────────────────────────────────
-START_TTE_DAYS = 5     # Round 3 starts here per Phase 5 spec
+START_TTE_DAYS = 5
 TICKS_PER_DAY = 10_000
-TIMESTAMP_STEP = 100   # market timestamp increments by 100 per tick
+TIMESTAMP_STEP = 100
 
 
 def tte_years(timestamp):
@@ -741,244 +751,188 @@ def tte_years(timestamp):
 
 
 class OptionTrader:
-    """Trades the 6 active VE vouchers off deviations from the live IV smile."""
+    """IV scalping on all 6 active VE vouchers (Frankfurt Hedgehogs style)."""
 
     def __init__(self, state, prints, new_trader_data):
         self.state = state
         self.prints = prints
         self.new_trader_data = new_trader_data
 
-        last = {}
-        try:
-            if state.traderData:
-                last = json.loads(state.traderData)
-        except Exception:
-            last = {}
-        self.last_traderData = last
+        # One ProductTrader per voucher + one for the underlying.
+        self.options = [
+            ProductTrader(s, state, prints, new_trader_data, product_group='OPTION')
+            for s in VOUCHER_SYMBOLS
+        ]
+        self.underlying = ProductTrader(
+            VELVET_SYMBOL, state, prints, new_trader_data, product_group='OPTION'
+        )
+        # All ProductTraders share the same deserialised traderData snapshot.
+        self.last_traderData = self.underlying.last_traderData
 
-        self.tte = tte_years(state.timestamp)
+        self.indicators = self.calculate_indicators()
 
-    def _log(self, kind, payload, group="SMILE"):
+    def _log(self, kind, payload, group="OPTION"):
         bucket = self.prints.get(group, {})
         bucket[kind] = payload
         self.prints[group] = bucket
 
-    # ───────────────────────── public API ──────────────────────────────────
-    def get_orders(self):
-        result = {sym: [] for sym in VOUCHER_SYMBOLS}
+    def calculate_ema(self, td_key, window, value):
+        # EMA persisted across ticks via traderData.
+        old_mean = self.last_traderData.get(td_key, 0)
+        alpha = 2 / (window + 1)
+        new_mean = alpha * value + (1 - alpha) * old_mean
+        self.new_trader_data[td_key] = new_mean
+        return new_mean
 
-        if self.tte <= 0:
-            return result
+    def get_option_values(self, S, K, T):
+        """BS call price + delta + vega, IV from the fitted smile."""
+        if S is None or S <= 0 or T <= 0:
+            return max((S or 0) - K, 0.0), 1.0 if (S or 0) > K else 0.0, 0.0
+        m = math.log(K / S) / math.sqrt(T)
+        a, b, c = SMILE_COEFFS
+        iv = a * m * m + b * m + c
+        if iv <= 0:
+            return max(S - K, 0.0), 1.0 if S > K else 0.0, 0.0
+        sst = iv * math.sqrt(T)
+        d1 = (math.log(S / K) + 0.5 * iv * iv * T) / sst
+        d2 = d1 - sst
+        price = S * _N.cdf(d1) - K * _N.cdf(d2)
+        delta = _N.cdf(d1)
+        vega = S * _N.pdf(d1) * math.sqrt(T)
+        return price, delta, vega
 
-        # Underlying spot from VE wall_mid
-        try:
-            ve = ProductTrader(VELVET_SYMBOL, self.state, self.prints,
-                               self.new_trader_data, product_group='SMILE')
-        except Exception as e:
-            self._log("ERR_VE", str(e))
-            return result
-        S = ve.wall_mid
-        if S is None or S <= 0:
-            self._log("SKIP", "no_underlying_mid")
-            return result
+    def calculate_indicators(self):
+        # Compute per-option theo, theo_diff, EMAs, and Greeks.
+        ind = {
+            'mean_theo_diffs': {},
+            'current_theo_diffs': {},
+            'switch_means': {},
+            'deltas': {},
+            'vegas': {},
+        }
 
-        # ── Per-voucher snapshot: IV, moneyness, half-spread ────────────────
-        snaps = []
-        for sym, K in zip(VOUCHER_SYMBOLS, ACTIVE_STRIKES):
-            try:
-                pt = ProductTrader(sym, self.state, self.prints,
-                                   self.new_trader_data, product_group='SMILE')
-                if pt.best_bid is None or pt.best_ask is None:
-                    continue
-                if pt.wall_mid is None:
-                    continue
-                iv = implied_vol(float(pt.wall_mid), float(S),
-                                 float(K), float(self.tte))
-                if math.isnan(iv):
-                    continue
-                m = math.log(K / S) / math.sqrt(self.tte)
-                hs = max(0.5, (pt.best_ask - pt.best_bid) / 2.0)
-                snaps.append({
-                    "sym": sym, "K": K, "pt": pt,
-                    "mid": pt.wall_mid, "iv": iv, "m": m, "hs": hs,
-                })
-            except Exception as e:
-                self._log(f"ERR_{sym}", str(e))
+        if self.underlying.wall_mid is None:
+            return ind
 
-        if len(snaps) < 4:
-            self._log("SKIP", f"too_few_iv_n{len(snaps)}")
-            return result
+        T = tte_years(self.state.timestamp)
+        if T <= 0:
+            return ind
 
-        # ── Quadratic smile fit weighted by 1/half-spread ───────────────────
-        # USE_LOO=True: per-voucher leave-one-out fit so the residual is a
-        # genuine out-of-sample deviation, not constrained by self-regression.
-        ms = np.array([s["m"] for s in snaps], dtype=float)
-        ivs = np.array([s["iv"] for s in snaps], dtype=float)
-        ws = np.array([1.0 / s["hs"] for s in snaps], dtype=float)
-        try:
-            coeffs_full = np.polyfit(ms, ivs, 2, w=ws)
-        except Exception as e:
-            self._log("FIT_FAIL", str(e))
-            return result
-        self._log("FIT", {"a": round(float(coeffs_full[0]), 5),
-                          "b": round(float(coeffs_full[1]), 5),
-                          "c": round(float(coeffs_full[2]), 5),
-                          "S": round(S, 2), "tte": round(self.tte, 6)})
+        # Use bid/ask average for spot when both sides exist (matches Timo).
+        if (self.underlying.best_bid is not None
+                and self.underlying.best_ask is not None):
+            S = self.underlying.best_bid * 0.5 + self.underlying.best_ask * 0.5
+        else:
+            S = self.underlying.wall_mid
 
-        candidates = []
+        for option in self.options:
+            k = int(option.name.split('_')[-1])
 
-        # ── Per-voucher EMA update + signal ─────────────────────────────────
-        alpha_m = 2.0 / (EMA_MEAN_WINDOW + 1)
-        alpha_v = 2.0 / (EMA_VAR_WINDOW + 1)
+            # If only one side of the book exists, synthesise a midpoint
+            # (Timo's recipe — keeps the option in scope when half-quoted).
+            if option.wall_mid is None:
+                if option.ask_wall is not None:
+                    option.wall_mid = option.ask_wall - 0.5
+                    option.bid_wall = option.ask_wall - 1
+                    option.best_bid = option.ask_wall - 1
+                elif option.bid_wall is not None:
+                    option.wall_mid = option.bid_wall + 0.5
+                    option.ask_wall = option.bid_wall + 1
+                    option.best_ask = option.bid_wall + 1
 
-        for j, s in enumerate(snaps):
-            sym = s["sym"]
-            if USE_LOO and len(snaps) >= 5:
-                mask = np.ones(len(snaps), dtype=bool)
-                mask[j] = False
-                cf = np.polyfit(ms[mask], ivs[mask], 2, w=ws[mask])
-            else:
-                cf = coeffs_full
-            a_j, b_j, c_j = float(cf[0]), float(cf[1]), float(cf[2])
-            iv_fit = a_j * s["m"] ** 2 + b_j * s["m"] + c_j
-            deviation = s["iv"] - iv_fit
+            if option.wall_mid is None:
+                continue
 
-            key = f"SMILE_{sym}"
-            prev = self.last_traderData.get(
-                key, {"ema_dev": 0.0, "ema_var": 0.0, "n": 0}
+            theo, delta, vega = self.get_option_values(S, k, T)
+            # Positive diff → market price above theo (option is rich).
+            theo_diff = option.wall_mid - theo
+
+            ind['current_theo_diffs'][option.name] = theo_diff
+            ind['deltas'][option.name] = delta
+            ind['vegas'][option.name] = vega
+
+            # Short EMA: persistent mispricing level.
+            mean_diff = self.calculate_ema(
+                f'{option.name}_theo_diff', THEO_NORM_WINDOW, theo_diff
             )
-            ema_dev = float(prev.get("ema_dev", 0.0))
-            ema_var = float(prev.get("ema_var", 0.0))
-            n_prev = int(prev.get("n", 0))
+            ind['mean_theo_diffs'][option.name] = mean_diff
 
-            diff = deviation - ema_dev
-            ema_dev_new = ema_dev + alpha_m * diff
-            ema_var_new = (1.0 - alpha_v) * (ema_var + alpha_v * diff * diff)
-            stddev = math.sqrt(max(ema_var_new, 0.0))
-            n_new = n_prev + 1
+            # Long EMA of |dev − mean|: regime detector.
+            switch_mean = self.calculate_ema(
+                f'{option.name}_avg_devs', IV_SCALPING_WINDOW,
+                abs(theo_diff - mean_diff)
+            )
+            ind['switch_means'][option.name] = switch_mean
 
-            # Persist immediately so failures downstream don't drop state
-            self.new_trader_data[key] = {
-                "ema_dev": ema_dev_new,
-                "ema_var": ema_var_new,
-                "n": n_new,
-            }
+        return ind
 
-            z = (deviation - ema_dev_new) / max(stddev, 0.001)
-            if z > 10.0:
-                z = 10.0
-            elif z < -10.0:
-                z = -10.0
+    def get_iv_scalping_orders(self, options):
+        # Per-option scalping with regime gate. Note the "execution-price
+        # adjustment" baked into the trade signals: the bid/ask in the
+        # comparison turns the deviation into the gap you'd lock in by
+        # actually crossing the spread RIGHT NOW.
+        out = {}
 
-            delta = bs_delta(S, s["K"], self.tte, max(iv_fit, 1e-3))
-            pos = self.state.position.get(sym, 0)
+        for option in options:
 
-            self._log(sym, {
-                "iv": round(s["iv"], 5),
-                "fit": round(iv_fit, 5),
-                "dev": round(deviation, 5),
-                "ema": round(ema_dev_new, 5),
-                "sd": round(stddev, 5),
-                "z": round(z, 3),
-                "p": pos, "n": n_new,
-            })
+            if (option.name in self.indicators['mean_theo_diffs']
+                    and option.name in self.indicators['current_theo_diffs']
+                    and option.name in self.indicators['switch_means']):
 
-            if n_new <= WARMUP_TICKS:
-                continue
+                if self.indicators['switch_means'][option.name] >= IV_SCALPING_THR:
 
-            pt = s["pt"]
-            spread = pt.best_ask - pt.best_bid
-            if PASSIVE_EXEC:
-                # Join top-of-book: sell at best_ask (above market) and buy
-                # at best_bid (below market). Fills only on aggressors crossing
-                # our quote — pays no spread cost when filled. For wide-spread
-                # vouchers we step one tick inside top-of-book to improve
-                # queue priority while still not crossing.
-                if spread > 1:
-                    sell_px = pt.best_ask - 1
-                    buy_px = pt.best_bid + 1
+                    current_theo_diff = self.indicators['current_theo_diffs'][option.name]
+                    mean_theo_diff = self.indicators['mean_theo_diffs'][option.name]
+
+                    # Low-vega options are harder to price → widen threshold.
+                    low_vega_adj = 0
+                    if self.indicators['vegas'].get(option.name, 0) <= 1:
+                        low_vega_adj = LOW_VEGA_THR_ADJ
+
+                    if option.best_bid is None or option.best_ask is None:
+                        out[option.name] = option.orders
+                        continue
+
+                    sell_signal = (current_theo_diff - option.wall_mid
+                                    + option.best_bid - mean_theo_diff)
+                    buy_signal = (current_theo_diff - option.wall_mid
+                                   + option.best_ask - mean_theo_diff)
+
+                    # Option is rich (above mean): sell to open or sell to close a long
+                    if sell_signal >= (THR_OPEN + low_vega_adj) and option.max_allowed_sell_volume > 0:
+                        option.ask(option.best_bid, option.max_allowed_sell_volume)
+
+                    if sell_signal >= THR_CLOSE and option.initial_position > 0:
+                        option.ask(option.best_bid, option.initial_position)
+
+                    # Option is cheap (below mean): buy to open or buy to close a short
+                    elif buy_signal <= -(THR_OPEN + low_vega_adj) and option.max_allowed_buy_volume > 0:
+                        option.bid(option.best_ask, option.max_allowed_buy_volume)
+
+                    if buy_signal <= -THR_CLOSE and option.initial_position < 0:
+                        option.bid(option.best_ask, -option.initial_position)
+
                 else:
-                    sell_px = pt.best_ask
-                    buy_px = pt.best_bid
-            else:
-                # Spec's taking execution (cross spread). Mathematically
-                # unprofitable on these vouchers (round-trip cost >> edge).
-                sell_px = pt.best_bid
-                buy_px = pt.best_ask
+                    # Low-vol regime: no new positions, flatten existing ones.
+                    if option.initial_position > 0 and option.best_bid is not None:
+                        option.ask(option.best_bid, option.initial_position)
+                    elif option.initial_position < 0 and option.best_ask is not None:
+                        option.bid(option.best_ask, -option.initial_position)
 
-            # Available size: position limit headroom only — passive orders
-            # don't consume book volume, so book volume isn't a binding cap.
-            if z > N_OPEN and sell_px is not None:
-                size = min(PER_TRADE_CAP, pt.max_allowed_sell_volume)
-                if size >= 1:
-                    candidates.append({
-                        "sym": sym, "side": "ask", "price": sell_px,
-                        "size": int(size), "abs_z": abs(z),
-                        "delta": delta, "pt": pt, "is_close": False,
-                    })
-            elif z < -N_OPEN and buy_px is not None:
-                size = min(PER_TRADE_CAP, pt.max_allowed_buy_volume)
-                if size >= 1:
-                    candidates.append({
-                        "sym": sym, "side": "bid", "price": buy_px,
-                        "size": int(size), "abs_z": abs(z),
-                        "delta": delta, "pt": pt, "is_close": False,
-                    })
-            elif abs(z) < N_CLOSE and pos != 0:
-                if pos > 0 and sell_px is not None:
-                    size = min(pos, pt.max_allowed_sell_volume)
-                    if size >= 1:
-                        candidates.append({
-                            "sym": sym, "side": "ask", "price": sell_px,
-                            "size": int(size), "abs_z": abs(z),
-                            "delta": delta, "pt": pt, "is_close": True,
-                        })
-                elif pos < 0 and buy_px is not None:
-                    size = min(-pos, pt.max_allowed_buy_volume)
-                    if size >= 1:
-                        candidates.append({
-                            "sym": sym, "side": "bid", "price": buy_px,
-                            "size": int(size), "abs_z": abs(z),
-                            "delta": delta, "pt": pt, "is_close": True,
-                        })
+            out[option.name] = option.orders
 
-        # ── Existing-position delta (for the cap baseline) ───────────────────
-        # Use the full-fit coeffs for existing-delta baseline; LOO would be
-        # over-engineered here since this is just a hedge sanity sum.
-        a_f, b_f, c_f = (float(coeffs_full[0]), float(coeffs_full[1]),
-                          float(coeffs_full[2]))
-        existing_delta = 0.0
-        for s in snaps:
-            iv_fit_s = a_f * s["m"] ** 2 + b_f * s["m"] + c_f
-            d_s = bs_delta(S, s["K"], self.tte, max(iv_fit_s, 1e-3))
-            existing_delta += self.state.position.get(s["sym"], 0) * d_s
-        net_delta = existing_delta
+        return out
 
-        # Closes prioritised, then highest |z| open trades
-        candidates.sort(key=lambda c: (not c["is_close"], -c["abs_z"]))
+    def get_orders(self):
+        # Warmup: skip until EMAs have ticks. Matches Timo (THEO_NORM_WINDOW
+        # is the shortest of his windows).
+        if self.state.timestamp / TIMESTAMP_STEP < THEO_NORM_WINDOW:
+            return {}
+        # All 6 strikes (5000–5500) are relatively ATM; apply IV scalping to
+        # all of them. Per spec, the deeper-strike mr_options branch is NOT
+        # being shipped in this version.
+        return self.get_iv_scalping_orders(self.options)
 
-        for c in candidates:
-            signed_size = c["size"] if c["side"] == "bid" else -c["size"]
-            d_after = net_delta + signed_size * c["delta"]
-            if abs(d_after) > DELTA_CAP:
-                self._log(f"SKIP_DELTA_{c['sym']}",
-                          {"would": round(d_after, 1),
-                           "side": c["side"], "size": c["size"]})
-                continue
-            net_delta = d_after
-            pt = c["pt"]
-            if c["side"] == "bid":
-                pt.bid(c["price"], c["size"])
-            else:
-                pt.ask(c["price"], c["size"])
-            result[c["sym"]] = list(pt.orders)
-            self._log(f"EXEC_{c['sym']}", {
-                "side": c["side"], "p": c["price"], "v": c["size"],
-                "z": round(c["abs_z"], 2), "close": c["is_close"],
-            })
-
-        self._log("NETD", round(net_delta, 1))
-        return result
 
 
 # ─────────────────────────────────────────────────────────────────────────────

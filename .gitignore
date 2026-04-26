@@ -18,6 +18,8 @@ build/
 
 # Backtest logs (optional - remove this block if you want to track logs)
 backtests/*.log
+**/backtests/*.log
+**/backtests/
 
 # Jupyter notebooks checkpoints
 .ipynb_checkpoints/
