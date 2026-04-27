@@ -976,14 +976,15 @@ class Trader:
             except Exception as e:
                 logger.print(f"ERROR in StaticTrader[{VELVET_SYMBOL}]: {e}")
 
-        # 3. OptionTrader — handles all 6 active vouchers internally
-        try:
-            opt = OptionTrader(state, prints, new_trader_data)
-            for sym, ords in opt.get_orders().items():
-                if ords:
-                    result.setdefault(sym, []).extend(ords)
-        except Exception as e:
-            logger.print(f"ERROR in OptionTrader: {e}")
+        # 3. OptionTrader — DISABLED for final submission (was losing -2k on
+        # 3-day backtest; class definition retained for re-enable).
+        # try:
+        #     opt = OptionTrader(state, prints, new_trader_data)
+        #     for sym, ords in opt.get_orders().items():
+        #         if ords:
+        #             result.setdefault(sym, []).extend(ords)
+        # except Exception as e:
+        #     logger.print(f"ERROR in OptionTrader: {e}")
 
         # Serialise persistent state for next tick
         try:
